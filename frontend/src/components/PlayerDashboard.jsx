@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { LogOut, Send, PiggyBank, Landmark, ScrollText, HandCoins, Store, Tag, ShoppingCart, Home } from 'lucide-react';
 import { syncGameSnapshot, syncTransaction, syncMarket, syncLoans } from '../services/firebase';
+import { API_URL } from '../config';
 
 function formatarNumero(valor) {
   const num = String(valor).replace(/\D/g, '');
@@ -45,7 +46,7 @@ export default function PlayerDashboard({ user, setUser, socket, onLogout }) {
 
   const fetchData = async () => {
     try {
-      const res = await fetch('http://localhost:3001/api/game_state');
+      const res = await fetch(`${API_URL}/api/game_state`);
       const data = await res.json();
       if (data.users && Array.isArray(data.users)) {
         setAllUsers(data.users.filter(u => parseInt(u.id) !== uid));
@@ -61,7 +62,7 @@ export default function PlayerDashboard({ user, setUser, socket, onLogout }) {
 
   const fetchHistory = async () => {
     try {
-      const res = await fetch(`http://localhost:3001/api/history/${user.id}`);
+      const res = await fetch(`${API_URL}/api/history/${user.id}`);
       const data = await res.json();
       if (Array.isArray(data)) {
         setHistory(data);
@@ -73,8 +74,8 @@ export default function PlayerDashboard({ user, setUser, socket, onLogout }) {
   const fetchMarket = async () => {
     try {
       const [mRes, meRes] = await Promise.all([
-        fetch('http://localhost:3001/api/market'),
-        fetch(`http://localhost:3001/api/market/mine/${user.id}`)
+        fetch(`${API_URL}/api/market`),
+        fetch(`${API_URL}/api/market/mine/${user.id}`)
       ]);
       const mData = await mRes.json();
       const meData = await meRes.json();
@@ -91,7 +92,7 @@ export default function PlayerDashboard({ user, setUser, socket, onLogout }) {
 
   const fetchLoans = async () => {
     try {
-      const res = await fetch(`http://localhost:3001/api/loans/${user.id}`);
+      const res = await fetch(`${API_URL}/api/loans/${user.id}`);
       const data = await res.json();
       if (Array.isArray(data)) {
         setLoans(data);
@@ -189,9 +190,11 @@ export default function PlayerDashboard({ user, setUser, socket, onLogout }) {
   return (
     <div className="container animate-slide-up" style={{ paddingBottom: '80px' }}>
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-        <h2 style={{ color: 'var(--primary)', margin: 0 }}>Olá, {user.username}</h2>
-        <button className="btn-secondary" style={{ width: 'auto', padding: '8px 16px' }} onClick={onLogout}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', gap: '12px', flexWrap: 'wrap' }}>
+        <h2 style={{ color: 'var(--primary)', margin: 0, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          Olá, {user.username}
+        </h2>
+        <button className="btn-secondary" style={{ width: 'auto', padding: '8px 16px', flexShrink: 0 }} onClick={onLogout}>
           <LogOut size={18} /> Sair
         </button>
       </div>
@@ -213,7 +216,7 @@ export default function PlayerDashboard({ user, setUser, socket, onLogout }) {
       {/* Férias badge */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: '#fff9e6', border: '1px solid #fde68a', borderRadius: '12px', padding: '12px 16px', marginBottom: '20px' }}>
         <PiggyBank size={24} color="#d97706" />
-        <div>
+        <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: '12px', color: '#b45309' }}>Pote de Férias Acumulado</div>
           <div style={{ fontWeight: 'bold', color: '#92400e' }}>M$ {feriasBalance.toLocaleString('pt-BR')}</div>
         </div>
@@ -381,7 +384,7 @@ export default function PlayerDashboard({ user, setUser, socket, onLogout }) {
       {/* Modal Comprovante */}
       {receiptTx && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
-          <div className="glass animate-slide-up" style={{ width: '90%', maxWidth: '380px', textAlign: 'center' }}>
+          <div className="glass animate-slide-up" style={{ width: '90%', maxWidth: '380px', textAlign: 'center', maxHeight: '85vh', overflowY: 'auto' }}>
             <h3 style={{ color: 'var(--primary)' }}>🧾 Comprovante Pix</h3>
             <div style={{ borderBottom: '2px dashed #e2e8f0', padding: '8px 0', marginBottom: '12px' }}>
               <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Protocolo #{receiptTx.id}</span>

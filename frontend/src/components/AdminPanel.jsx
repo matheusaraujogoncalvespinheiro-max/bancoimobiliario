@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { LogOut, PlusCircle, Gift, Landmark, Clock, RefreshCcw, ScrollText, PiggyBank, HandCoins } from 'lucide-react';
 import { syncGameSnapshot, syncTransaction, syncMarket, syncLoans } from '../services/firebase';
+import { API_URL } from '../config';
 
 export default function AdminPanel({ socket, onLogout }) {
   const [activeTab, setActiveTab] = useState('jogadores'); // jogadores, mercado, extrato, emprestimos
@@ -28,7 +29,7 @@ export default function AdminPanel({ socket, onLogout }) {
 
   const fetchData = async () => {
     try {
-      const res = await fetch('http://localhost:3001/api/game_state');
+      const res = await fetch(`${API_URL}/api/game_state`);
       const data = await res.json();
       if (data.state) setGameState(data.state);
       
@@ -51,7 +52,7 @@ export default function AdminPanel({ socket, onLogout }) {
 
   const fetchHistory = async () => {
     try {
-      const res = await fetch('http://localhost:3001/api/history');
+      const res = await fetch(`${API_URL}/api/history`);
       const data = await res.json();
       if (Array.isArray(data)) {
         setHistory(data);
@@ -62,7 +63,7 @@ export default function AdminPanel({ socket, onLogout }) {
 
   const fetchMarket = async () => {
     try {
-      const res = await fetch('http://localhost:3001/api/market?role=admin');
+      const res = await fetch(`${API_URL}/api/market?role=admin`);
       const data = await res.json();
       if (Array.isArray(data)) {
         setMarket(data);
@@ -73,7 +74,7 @@ export default function AdminPanel({ socket, onLogout }) {
 
   const fetchLoans = async () => {
     try {
-      const res = await fetch('http://localhost:3001/api/loans');
+      const res = await fetch(`${API_URL}/api/loans`);
       const data = await res.json();
       if (Array.isArray(data)) {
         setLoans(data);
@@ -110,7 +111,7 @@ export default function AdminPanel({ socket, onLogout }) {
   const handleCreateAccount = async (e) => {
     e.preventDefault();
     try {
-      const res = await fetch('http://localhost:3001/api/users', {
+      const res = await fetch(`${API_URL}/api/users`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password, initialBalance: Number(initialBalance) })
@@ -166,7 +167,7 @@ export default function AdminPanel({ socket, onLogout }) {
 
   return (
     <div className="container animate-slide-up">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', gap: '12px', flexWrap: 'wrap' }}>
         <h2 style={{ color: 'var(--primary)', margin: 0 }}>Banqueiro</h2>
         <button className="btn-secondary" style={{ width: 'auto', padding: '8px 16px', color: 'var(--danger)' }} onClick={onLogout}>
           <LogOut size={18} /> Sair

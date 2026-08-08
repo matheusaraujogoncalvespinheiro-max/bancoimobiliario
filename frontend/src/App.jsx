@@ -4,9 +4,10 @@ import Login from './components/Login';
 import AdminPanel from './components/AdminPanel';
 import PlayerDashboard from './components/PlayerDashboard';
 import { syncUser } from './services/firebase';
+import { SOCKET_URL } from './config';
 import { Bell, X } from 'lucide-react';
 
-const socket = io('http://localhost:3001');
+const socket = io(SOCKET_URL);
 
 // Som de dinheiro via Web Audio API
 function playMoneySound() {
@@ -145,7 +146,7 @@ function App() {
         <button
           onClick={() => setShowNotifPanel(p => !p)}
           style={{
-            position: 'fixed', bottom: '24px', right: '24px',
+            position: 'fixed', bottom: 'calc(16px + env(safe-area-inset-bottom))', right: '16px',
             width: '56px', height: '56px', borderRadius: '50%',
             background: 'var(--primary)', color: 'white',
             border: 'none', cursor: 'pointer', boxShadow: '0 4px 16px rgba(138,5,190,0.4)',
@@ -171,8 +172,11 @@ function App() {
       {/* Painel de Notificações */}
       {showNotifPanel && (
         <div style={{
-          position: 'fixed', bottom: '90px', right: '24px',
-          width: '320px', maxHeight: '60vh', overflowY: 'auto',
+          position: 'fixed',
+          bottom: 'calc(90px + env(safe-area-inset-bottom))',
+          right: '16px',
+          width: 'min(320px, calc(100vw - 32px))',
+          maxHeight: '55vh', overflowY: 'auto',
           background: 'white', borderRadius: '16px',
           boxShadow: '0 8px 32px rgba(0,0,0,0.15)', zIndex: 998,
           border: '1px solid #e2e8f0'

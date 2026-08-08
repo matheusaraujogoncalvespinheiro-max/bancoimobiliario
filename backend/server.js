@@ -1,5 +1,7 @@
 const express = require('express');
 const http = require('http');
+const fs = require('fs');
+const path = require('path');
 const { Server } = require('socket.io');
 const cors = require('cors');
 const db = require('./database');
@@ -122,6 +124,19 @@ app.get('/api/market/mine/:userId', (req, res) => {
   `, [req.params.userId], (err, rows) => {
     res.json(rows || []);
   });
+});
+
+// Servir o site (frontend buildado) quando estiver pronto pra produção
+const distDir = path.join(__dirname, '..', 'frontend', 'dist');
+const indexFile = path.join(distDir, 'index.html');
+app.use(express.static(distDir));
+app.use((req, res, next) => {
+  if (req.method !== 'GET' && req.method !== 'HEAD') return next();
+  if (req.path.startsWith('/api') || req.path.startsWith('/socket.io')) return next();
+  if (fs.existsSync(indexFile)) {
+    return res.sendFile(indexFile);
+  }
+  next();
 });
 
 
@@ -426,5 +441,5 @@ io.on('connection', (socket) => {
   });
 });
 
-const PORT = 3001;
+const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => { console.log('Servidor rodando na porta ' + PORT); });

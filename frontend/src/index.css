@@ -14,14 +14,23 @@
   box-sizing: border-box;
 }
 
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 body {
   margin: 0;
   font-family: 'Inter', system-ui, Avenir, Helvetica, Arial, sans-serif;
   background-color: var(--bg-color);
   color: var(--text-main);
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior-y: none;
 }
 
 #root {
@@ -72,11 +81,18 @@ body {
   justify-content: center;
   align-items: center;
   gap: 8px;
+  -webkit-appearance: none;
+  appearance: none;
+  touch-action: manipulation;
 }
 
 .btn-primary:hover {
   background: var(--primary-hover);
   transform: translateY(-2px);
+}
+
+.btn-primary:disabled {
+  cursor: not-allowed;
 }
 
 .btn-secondary {
@@ -94,6 +110,9 @@ body {
   justify-content: center;
   align-items: center;
   gap: 8px;
+  -webkit-appearance: none;
+  appearance: none;
+  touch-action: manipulation;
 }
 .btn-secondary:hover {
   background: #d4d4d4;
@@ -205,7 +224,9 @@ body {
   justify-content: center;
   align-items: center;
   min-height: 100vh;
+  min-height: 100dvh;
   background-color: var(--primary);
+  padding: 16px;
 }
 
 .login-box {
@@ -225,5 +246,50 @@ body {
 @media(min-width: 768px) {
   .grid-dashboard {
     grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* ---- Responsividade Mobile ---- */
+@media (max-width: 640px) {
+  .container {
+    padding: 14px 14px calc(14px + env(safe-area-inset-bottom));
+  }
+
+  .glass {
+    padding: 18px;
+  }
+
+  .card-balance {
+    font-size: 26px;
+  }
+}
+
+@media (max-width: 480px) {
+  .glass {
+    padding: 16px;
+  }
+
+  .login-box {
+    padding: 24px;
+  }
+
+  .credit-card {
+    height: 185px;
+    padding: 20px;
+  }
+
+  .card-balance {
+    font-size: 24px;
+  }
+
+  .card-name {
+    font-size: 15px;
+    letter-spacing: 1px;
+  }
+
+  .notification {
+    width: calc(100% - 24px);
+    top: 10px;
+    padding: 14px;
   }
 }
