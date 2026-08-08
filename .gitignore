@@ -1,0 +1,27 @@
+# Dependências
+node_modules/
+dist/
+dist-ssr/
+
+# Banco local (contém senhas em texto puro - não subir)
+backend/banco.sqlite
+backend/banco.sqlite-journal
+
+# Configuração/secrets
+frontend/.env
+frontend/.env.local
+.env
+.env.local
+*.local
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+
+# Editor / SO
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+Thumbs.db

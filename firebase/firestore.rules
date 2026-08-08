@@ -1,0 +1,36 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Já usuário do jogo usa o SDK sem login (auth anônima/ausente).
+    // Para o espelhamento funcionar de imediato, o Firestore aceita leitura/escrita.
+    // Aviso: em produção restringa estas regras (ex.: request.auth != null).
+    match /users/{userId} {
+      allow read, write: if true;
+    }
+
+    // Estado global do jogo (rodada, saldo, lista de jogadores)
+    match /gameState/{docId} {
+      allow read, write: if true;
+    }
+
+    // Histórico de transações (Pix) + comprovantes
+    match /transactions/{txId} {
+      allow read, write: if true;
+    }
+
+    // Empréstimos ativos
+    match /loans/{loanId} {
+      allow read, write: if true;
+    }
+
+    // Imóveis / mercado
+    match /properties/{propertyId} {
+      allow read, write: if true;
+    }
+
+    // Notificações por jogador
+    match /notifications/{userId} {
+      allow read, write: if true;
+    }
+  }
+}
