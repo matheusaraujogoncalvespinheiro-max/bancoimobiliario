@@ -96,6 +96,16 @@ function App() {
       pushNotif('error', '☠️ FALÊNCIA!', 'Seu saldo chegou a -1.5M. Você está eliminado.');
     });
 
+    socket.on('game_reset', () => {
+      setUser(prev => {
+        if (prev && prev.role !== 'admin') return null;
+        return prev;
+      });
+      setNotifList([]);
+      setShowNotifPanel(false);
+      pushNotif('error', '🔄 Jogo Zerado', 'O admin começou um novo jogo. Faça login novamente.');
+    });
+
     return () => {
       socket.off('pix_received');
       socket.off('pix_success');
@@ -106,6 +116,7 @@ function App() {
       socket.off('ferias_updated');
       socket.off('pix_error');
       socket.off('bankrupt');
+      socket.off('game_reset');
     };
   }, []);
 

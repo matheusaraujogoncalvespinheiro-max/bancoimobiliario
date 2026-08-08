@@ -140,6 +140,25 @@ io.on('connection', (socket) => {
     });
   });
 
+  // Admin Zerar o Jogo (novo jogo do zero)
+  socket.on('reset_game', () => {
+    db.serialize(() => {
+      db.run('DELETE FROM property_bids');
+      db.run('DELETE FROM properties');
+      db.run('DELETE FROM loans');
+      db.run('DELETE FROM transactions');
+      db.run("DELETE FROM users WHERE role = 'player'");
+      db.run("UPDATE users SET balance = 999999999 WHERE username = 'Banco'");
+      db.run("UPDATE users SET balance = 0 WHERE username = 'Férias'");
+      db.run('UPDATE game_state SET round = 0, isStarted = 0 WHERE id = 1', () => {
+        io.emit('game_reset');
+        io.emit('ferias_updated', { balance: 0 });
+        io.emit('market_updated');
+        io.emit('game_updated');
+      });
+    });
+  });
+
   // Admin Avançar Rodada
   socket.on('next_round', () => {
     db.serialize(() => {

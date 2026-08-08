@@ -155,6 +155,15 @@ export default function AdminPanel({ socket, onLogout }) {
     showMessage('Compra pelo banco aprovada!');
   };
 
+  const handleResetGame = () => {
+    const typed = prompt(
+      'Isso vai APAGAR TUDO (jogadores, saldos, transações, imóveis, empréstimos e rodadas) e começar um novo jogo.\n\nDigite ZERAR para confirmar:'
+    );
+    if (typed !== 'ZERAR') return showMessage('Jogo NÃO foi zerado.');
+    socket.emit('reset_game');
+    showMessage('Jogo zerado! Novos jogadores podem ser criados.');
+  };
+
   return (
     <div className="container animate-slide-up">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
@@ -234,6 +243,18 @@ export default function AdminPanel({ socket, onLogout }) {
                 </div>
               ))}
             </div>
+          </div>
+
+          <div className="glass" style={{ border: '2px solid #fecaca', background: '#fff5f5' }}>
+            <h3 style={{ color: 'var(--danger)' }}>🗑️ Zerar Jogo</h3>
+            <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginBottom: '12px' }}>
+              Apaga TUDO (jogadores, saldos, transações, imóveis, empréstimos e rodadas) para começar um novo jogo do zero.
+            </p>
+            <button
+              className="btn-primary"
+              style={{ background: 'var(--danger)', width: '100%' }}
+              onClick={handleResetGame}
+            >Zerar Jogo e Começar de Novo</button>
           </div>
         </div>
       )}
