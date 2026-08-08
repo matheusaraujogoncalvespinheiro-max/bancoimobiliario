@@ -1,7 +1,5 @@
 # Dependências
 node_modules/
-dist/
-dist-ssr/
 
 # Banco local (contém senhas em texto puro - não subir)
 backend/banco.sqlite
