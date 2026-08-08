@@ -24,24 +24,25 @@ O jogo precisa de um servidor sempre ligado (Socket.IO + banco SQLite), por isso
 **não funciona no GitHub Pages nem na Vercel como só frontend**. O jeito mais
 fácil é subir TUDO num único host: **Railway** (gratuito pra começar).
 
-### Passo a passo no Railway (recomendado — 1 url só)
+### Passo a passo no Railway (recomendado — 1 url só, sem build)
+
+O site já vem **compilado** em `frontend/dist`, então o Railway roda **só o
+backend** (sem etapa de build):
 
 1. Crie conta em https://railway.app (logar com GitHub)
 2. **New Project → Deploy from GitHub repo** → escolha `bancoimobiliario`
-3. Em **Settings** do serviço defina:
+3. Em **Settings** do serviço:
    - **Root Directory**: `backend`
-   - depois rode `npm run build` no `frontend` (os arquivos ficam em `frontend/dist`, que o backend serve sozinho)
-4. Railway gera uma URL tipo `https://bancoimobiliario-production.up.railway.app`
-5. Mande essa URL pros seus amigos 💸
+   - **Build Command**: deixe em branco
+   - **Start Command**: `node server.js`
+4. Pronto! O Railway vai gerar um link tipo
+   `https://bancoimobiliario-production.up.railway.app` — mande esse link pros
+   seus amigos 💸
 
-> **Importante**: o site (frontend) precisa ser compilado. No Railway, use esses
-> **Build Command** e **Start Command**:
-> ```
-> Build:   cd ../frontend && npm ci && npm run build && cd ../backend && npm ci
-> Start:   node server.js
-> ```
-> Ou, se preferir comodidade, use o **Render** (https://render.com) seguindo o
-> mesmo esquema: Build Command = `cd ../frontend && npm ci && npm run build && cd ../backend && npm ci`, Start Command = `node server.js`.
+> **Quando você mudar algo no código** (frontend ou backend), rode local:
+> `cd frontend && npm run build` — o site atualizado vai junto no commit.
+> Se preferir, tem o **Render** (render.com) com a mesma configuração:
+> Root Directory `backend`, Start `node server.js`.
 
 ### Alternativa: Frontend na Vercel + Backend no Railway
 
