@@ -221,7 +221,7 @@ export default function AdminPanel({ socket, onLogout }) {
             <form onSubmit={handlePayFromBank}>
               <select className="input-field" value={payPlayerId} onChange={e => setPayPlayerId(e.target.value)} required>
                 <option value="" disabled>Para quem?</option>
-                {users.map(u => <option key={u.id} value={u.id}>{u.username}</option>)}
+                {users.map(u => <option key={u.id} value={u.id} disabled={!!u.isBankrupt}>{u.username}{u.isBankrupt ? ' (Faliu)' : ''}</option>)}
               </select>
               <input className="input-field" type="number" step="1000" placeholder="Valor (Múltiplos de 1.000)" value={payAmount} onChange={e => setPayAmount(e.target.value)} required />
               <button className="btn-primary" type="submit">Pagar Jogador</button>
@@ -233,7 +233,7 @@ export default function AdminPanel({ socket, onLogout }) {
             <form onSubmit={handleReleaseFerias}>
               <select className="input-field" style={{ background: 'white' }} value={feriasWinnerId} onChange={e => setFeriasWinnerId(e.target.value)} required>
                 <option value="" disabled>Quem caiu nas Férias?</option>
-                {users.map(u => <option key={u.id} value={u.id}>{u.username}</option>)}
+                {users.map(u => <option key={u.id} value={u.id} disabled={!!u.isBankrupt}>{u.username}{u.isBankrupt ? ' (Faliu)' : ''}</option>)}
               </select>
               <button className="btn-primary" type="submit" style={{ background: '#d97706' }}>Liberar Pote</button>
             </form>

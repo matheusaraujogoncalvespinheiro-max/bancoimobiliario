@@ -130,7 +130,7 @@ export default function PlayerDashboard({ user, setUser, socket, onLogout }) {
   const propertyPrice = desformatarNumero(propertyPriceDisplay);
 
   // Só jogadores (sem banco, sem férias) para pix entre pessoas
-  const playerReceivers = allUsers.filter(u => u.role === 'player');
+  const playerReceivers = allUsers.filter(u => u.role === 'player' && !u.isBankrupt);
   // Contas de sistema
   const bancoUser = allUsers.find(u => u.username === 'Banco');
   const feriasUser = allUsers.find(u => u.username === 'Férias');

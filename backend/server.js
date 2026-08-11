@@ -217,8 +217,20 @@ io.on('connection', (socket) => {
       return;
     }
 
-    const sender = db.prepare('SELECT balance, role, username FROM users WHERE id = ?').get(senderId);
+    const sender = db.prepare('SELECT balance, role, username, isBankrupt FROM users WHERE id = ?').get(senderId);
     if (!sender) return socket.emit('pix_error', 'Remetente não encontrado.');
+
+    if (sender.isBankrupt) {
+      socket.emit('pix_error', 'Você faliu e está fora do jogo. Não pode enviar nem receber dinheiro.');
+      return;
+    }
+
+    const receiver = db.prepare('SELECT username, isBankrupt FROM users WHERE id = ?').get(receiverId);
+    if (!receiver) return socket.emit('pix_error', 'Destinatário não encontrado.');
+    if (receiver.isBankrupt) {
+      socket.emit('pix_error', `${receiver.username} faliu e está fora do jogo. Não é possível enviar dinheiro para ele.`);
+      return;
+    }
 
     if (sender.role === 'player' && (sender.balance - amount) < -1500000) {
       socket.emit('pix_error', 'Limite de saldo negativo excedido (-1.500.000).');
@@ -259,6 +271,11 @@ io.on('connection', (socket) => {
   socket.on('refund_transaction', (transactionId) => {
     const tx = db.prepare('SELECT * FROM transactions WHERE id = ? AND status = \'completed\'').get(transactionId);
     if (!tx) return;
+    const refundRecipient = db.prepare('SELECT isBankrupt FROM users WHERE id = ?').get(tx.senderId);
+    if (refundRecipient && refundRecipient.isBankrupt) {
+      io.to(`user_${tx.senderId}`).emit('pix_error', 'Jogador faliu e está fora do jogo. Estorno não permitido.');
+      return;
+    }
     db.prepare('UPDATE users SET balance = balance + ? WHERE id = ?').run(tx.amount, tx.senderId);
     db.prepare('UPDATE users SET balance = balance - ? WHERE id = ?').run(tx.amount, tx.receiverId);
     db.prepare('UPDATE transactions SET status = \'refunded\' WHERE id = ?').run(transactionId);
@@ -307,6 +324,11 @@ io.on('connection', (socket) => {
       return socket.emit('pix_error', 'Saldo insuficiente para comprar este imóvel.');
     }
 
+    const seller = db.prepare('SELECT isBankrupt FROM users WHERE id = ?').get(prop.sellerId);
+    if (seller && seller.isBankrupt) {
+      return socket.emit('pix_error', 'O vendedor faliu e está fora do jogo. Não é possível comprar este imóvel.');
+    }
+
     db.prepare('UPDATE users SET balance = balance - ? WHERE id = ?').run(prop.askingPrice, buyerId);
     db.prepare('UPDATE users SET balance = balance + ? WHERE id = ?').run(prop.askingPrice, prop.sellerId);
     db.prepare('UPDATE properties SET status = \'sold\' WHERE id = ?').run(propertyId);
@@ -340,6 +362,8 @@ io.on('connection', (socket) => {
   socket.on('approve_bank_purchase', (propertyId) => {
     const prop = db.prepare('SELECT * FROM properties WHERE id = ?').get(propertyId);
     if (!prop) return;
+    const seller = db.prepare('SELECT isBankrupt FROM users WHERE id = ?').get(prop.sellerId);
+    if (seller && seller.isBankrupt) return;
     const banco = db.prepare("SELECT id FROM users WHERE username = 'Banco'").get();
     db.prepare('UPDATE users SET balance = balance + ? WHERE id = ?').run(prop.bankOffer, prop.sellerId);
     db.prepare('UPDATE properties SET status = \'sold\' WHERE id = ?').run(propertyId);
