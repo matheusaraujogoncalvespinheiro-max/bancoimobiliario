@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { LogOut, Send, PiggyBank, Landmark, ScrollText, HandCoins, Clock, Tag, ShoppingCart, Home } from 'lucide-react';
+import { LogOut, Send, PiggyBank, Landmark, ScrollText, HandCoins, Clock, Tag, ShoppingCart, Home, CreditCard } from 'lucide-react';
 import { syncGameSnapshot, syncTransaction, syncMarket, syncLoans } from '../services/firebase';
 import { API_URL } from '../config';
 
@@ -25,6 +25,7 @@ export default function PlayerDashboard({ user, setUser, socket, onLogout }) {
   const [myListings, setMyListings] = useState([]);
   const [salesHistory, setSalesHistory] = useState([]);
   const [loans, setLoans] = useState([]);
+  const [specialCards, setSpecialCards] = useState([]);
 
   // Transferência
   const [selectedReceiver, setSelectedReceiver] = useState(null);
@@ -33,6 +34,11 @@ export default function PlayerDashboard({ user, setUser, socket, onLogout }) {
 
   // Compra de imóvel
   const [buyModal, setBuyModal] = useState(null); // property object
+
+  // Cartão ADVENTURE (pagar alguém sem desconto)
+  const [adventureModal, setAdventureModal] = useState(null);
+  const [adventureReceiverId, setAdventureReceiverId] = useState('');
+  const [adventureAmountDisplay, setAdventureAmountDisplay] = useState('');
 
   // Comprovante
   const [receiptTx, setReceiptTx] = useState(null);
@@ -108,17 +114,27 @@ export default function PlayerDashboard({ user, setUser, socket, onLogout }) {
     } catch(e) {}
   };
 
+  const fetchSpecialCards = async () => {
+    try {
+      const res = await fetch(`${API_URL}/api/special_cards`);
+      const data = await res.json();
+      if (Array.isArray(data)) setSpecialCards(data);
+    } catch(e) {}
+  };
+
   useEffect(() => {
-    fetchData(); fetchHistory(); fetchMarket(); fetchLoans();
+    fetchData(); fetchHistory(); fetchMarket(); fetchLoans(); fetchSpecialCards();
     socket.on('game_updated', () => { fetchData(); fetchHistory(); fetchLoans(); });
     socket.on('market_updated', () => fetchMarket());
     socket.on('ferias_updated', (data) => { setFeriasBalance(data.balance ?? 0); });
     socket.on('online_users', (ids) => setOnlineUsers(ids));
+    socket.on('cards_updated', () => fetchSpecialCards());
     return () => {
       socket.off('game_updated');
       socket.off('market_updated');
       socket.off('ferias_updated');
       socket.off('online_users');
+      socket.off('cards_updated');
     };
   }, [socket]);
 
@@ -190,6 +206,32 @@ export default function PlayerDashboard({ user, setUser, socket, onLogout }) {
     socket.emit('delete_listing', { propertyId: p.id, sellerId: uid });
   };
 
+  const handleBuyCard = (c) => {
+    if (user.balance <= 0) return alert('Seu saldo está zerado. Você não pode comprar cartões.');
+    if (user.balance < c.price) return alert(`Saldo insuficiente! O cartão custa M$ ${c.price.toLocaleString('pt-BR')}.`);
+    if (!confirm(`Comprar o cartão ${c.emoji} ${c.name} por M$ ${c.price.toLocaleString('pt-BR')}?`)) return;
+    socket.emit('buy_special_card', { userId: uid, cardId: c.id });
+  };
+
+  const handleUseCard = (c) => {
+    if (c.effect === 'adventure') {
+      setAdventureReceiverId('');
+      setAdventureAmountDisplay('');
+      setAdventureModal(c);
+      return;
+    }
+    if (!confirm(`Usar o cartão ${c.emoji} ${c.name} agora?`)) return;
+    socket.emit('use_special_card', { userId: uid, cardId: c.id });
+  };
+
+  const handleConfirmAdventure = () => {
+    const val = desformatarNumero(adventureAmountDisplay);
+    if (!adventureReceiverId || val <= 0) return alert('Escolha o jogador e informe o valor.');
+    if (val % 1000 !== 0) return alert('O valor deve ser múltiplo de 1.000.');
+    socket.emit('use_special_card', { userId: uid, cardId: adventureModal.id, receiverId: Number(adventureReceiverId), amount: val });
+    setAdventureModal(null);
+  };
+
   const statusLabel = (status) => ({
     pending_admin: '⏳ Aguardando aprovação',
     active: '✅ Publicado',
@@ -202,10 +244,14 @@ export default function PlayerDashboard({ user, setUser, socket, onLogout }) {
   const tabs = [
     ['home', '💳 Pix'],
     ['casas', '🏠 Comprar Casa'],
+    ['bandeiras', '💎 Cartões'],
     ['extrato', '📄 Extrato'],
     ['emprestimo', '💰 Empréstimos'],
     ['mercado', '🏘️ Mercado'],
   ];
+
+  const ownedCards = specialCards.filter(c => Number(c.ownerId) === uid);
+  const playerReceiversForAdventure = allUsers.filter(u => u.role === 'player' && !u.isBankrupt && parseInt(u.id) !== uid);
 
   return (
     <div className="container animate-slide-up" style={{ paddingBottom: '80px' }}>
@@ -245,7 +291,13 @@ export default function PlayerDashboard({ user, setUser, socket, onLogout }) {
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
           <div className="card-name">{user.username}</div>
-          <Landmark size={28} opacity={0.5} />
+          {ownedCards.length > 0 ? (
+            <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+              {ownedCards.map(c => <img key={c.id} src={`/cards/${c.image}`} alt={c.name} title={`${c.name}: ${c.description}`} style={{ width: '30px', height: '42px', objectFit: 'cover', borderRadius: '4px' }} />)}
+            </div>
+          ) : (
+            <Landmark size={28} opacity={0.5} />
+          )}
         </div>
       </div>
 
@@ -388,6 +440,97 @@ export default function PlayerDashboard({ user, setUser, socket, onLogout }) {
               <p style={{ color: '#b45309', fontSize: '12px', marginTop: '12px' }}>⚠️ Se o valor estiver errado, somente o Admin pode fazer o estorno na aba Extrato.</p>
             </div>
           ) : <p style={{ color: 'var(--text-muted)' }}>Banco não encontrado. Aguarde o Admin iniciar o jogo.</p>}
+        </div>
+      )}
+
+      {/* ====== ABA CARTÕES ESPECIAIS ====== */}
+      {activeTab === 'bandeiras' && (
+        <div className="glass">
+          <h3><CreditCard size={20} style={{ verticalAlign: 'middle' }}/> Cartões Especiais</h3>
+          <p style={{ color: 'var(--text-muted)', fontSize: '14px', marginBottom: '20px' }}>
+            Compre um cartão e ganhe uma <strong>habilidade especial</strong>. Cada cartão tem apenas <strong>1 unidade</strong>: quem comprar primeiro fica com ele e <strong>não há revenda</strong>.
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            {specialCards.length === 0 && <p style={{ color: 'var(--text-muted)' }}>Nenhum cartão disponível no momento.</p>}
+            {specialCards.map(c => {
+              const ownedByMe = Number(c.ownerId) === uid;
+              const ownedByOther = c.ownerId && !ownedByMe;
+              const cantBuy = ownedByOther || user.balance <= 0 || user.balance < c.price;
+              const usesLeft = (c.maxUses || 0) - (c.usesUsed || 0);
+              const usable = ownedByMe && c.maxUses > 0 && usesLeft > 0;
+              return (
+                <div key={c.id} style={{ padding: '14px', border: ownedByMe ? '2px solid #86efac' : '1px solid #e2e8f0', borderRadius: '12px', background: ownedByMe ? '#f0fdf4' : 'white' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
+                    <img src={`/cards/${c.image}`} alt={c.name} style={{ width: '86px', height: '120px', objectFit: 'cover', borderRadius: '10px', boxShadow: '0 4px 12px rgba(0,0,0,0.25)', flexShrink: 0 }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 'bold', fontSize: '16px' }}>{c.name}</div>
+                      <div style={{ fontWeight: 'bold', color: 'var(--primary)', fontSize: '15px', marginTop: '4px' }}>M$ {c.price.toLocaleString('pt-BR')}</div>
+                      <div style={{ fontSize: '12px', color: '#b45309', marginTop: '4px' }}>
+                        ⚡ {c.maxUses === 0 ? 'Passivo (permanente)' : `${c.maxUses} uso(s) no jogo`}
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '10px' }}>
+                    {c.description}
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                    <div style={{ fontSize: '12px', fontWeight: '600', color: ownedByMe ? '#166534' : 'var(--text-muted)' }}>
+                      {ownedByMe
+                        ? (c.maxUses > 0 ? `✓ Seu cartão · ${usesLeft} uso(s) restante(s)` : '✓ Seu cartão · Passivo')
+                        : ownedByOther
+                          ? `🔒 Comprado por ${c.ownerName}`
+                          : 'Disponível para compra'}
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      {!ownedByMe && !ownedByOther && (
+                        <button
+                          className="btn-primary"
+                          style={{ opacity: cantBuy ? 0.5 : 1 }}
+                          disabled={cantBuy}
+                          onClick={() => handleBuyCard(c)}
+                        >
+                          {cantBuy ? 'Comprar' : `Comprar · M$ ${c.price.toLocaleString('pt-BR')}`}
+                        </button>
+                      )}
+                      {usable && (
+                        <button className="btn-primary" style={{ background: '#16a34a' }} onClick={() => handleUseCard(c)}>
+                          Usar ({usesLeft})
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Modal ADVENTURE CARD */}
+      {adventureModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
+          <div className="glass animate-slide-up" style={{ width: '90%', maxWidth: '380px', textAlign: 'center' }}>
+            <h3>🚀 Adventure Card</h3>
+            <p style={{ color: 'var(--text-muted)', fontSize: '14px', margin: '10px 0' }}>
+              O <strong>Banco</strong> paga a pessoa escolhida. Nada é descontado do seu saldo.
+            </p>
+            <select className="input-field" value={adventureReceiverId} onChange={e => setAdventureReceiverId(e.target.value)} style={{ textAlign: 'left' }}>
+              <option value="" disabled>Quem vai receber?</option>
+              {playerReceiversForAdventure.map(u => <option key={u.id} value={u.id}>{u.username}</option>)}
+            </select>
+            <input
+              className="input-field"
+              type="text"
+              inputMode="numeric"
+              placeholder="Valor (múltiplos de 1.000)"
+              value={adventureAmountDisplay}
+              onChange={e => setAdventureAmountDisplay(formatarNumero(e.target.value))}
+            />
+            <div style={{ display: 'flex', gap: '12px', marginTop: '16px' }}>
+              <button className="btn-secondary" style={{ flex: 1 }} onClick={() => setAdventureModal(null)}>Cancelar</button>
+              <button className="btn-primary" style={{ flex: 1 }} onClick={handleConfirmAdventure}>Pagar</button>
+            </div>
+          </div>
         </div>
       )}
 

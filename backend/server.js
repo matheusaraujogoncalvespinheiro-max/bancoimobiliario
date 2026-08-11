@@ -138,6 +138,17 @@ app.get('/api/market/history', (req, res) => {
   res.json(rows || []);
 });
 
+// Cartões especiais disponíveis (com dono)
+app.get('/api/special_cards', (req, res) => {
+  const rows = db.prepare(`
+    SELECT c.*, u.username as ownerName
+    FROM special_cards c
+    LEFT JOIN users u ON c.ownerId = u.id
+    ORDER BY c.price ASC
+  `).all();
+  res.json(rows || []);
+});
+
 // Servir o site (frontend buildado) quando estiver pronto pra produção
 const distDir = fs.existsSync(path.join(__dirname, 'public', 'index.html'))
   ? path.join(__dirname, 'public')
@@ -195,6 +206,7 @@ io.on('connection', (socket) => {
     db.prepare('DELETE FROM properties').run();
     db.prepare('DELETE FROM loans').run();
     db.prepare('DELETE FROM transactions').run();
+    db.prepare('UPDATE special_cards SET ownerId = NULL, usesUsed = 0').run();
     db.prepare("DELETE FROM users WHERE role = 'player'").run();
     db.prepare("UPDATE users SET balance = 999999999 WHERE username = 'Banco'").run();
     db.prepare("UPDATE users SET balance = 0 WHERE username = 'Férias'").run();
@@ -288,9 +300,16 @@ io.on('connection', (socket) => {
       return;
     }
 
-    db.prepare('UPDATE users SET balance = balance - ? WHERE id = ?').run(amount, senderId);
-    db.prepare('UPDATE users SET balance = balance + ? WHERE id = ?').run(amount, receiverId);
-    db.prepare('INSERT INTO transactions (senderId, receiverId, amount) VALUES (?, ?, ?)').run(senderId, receiverId, amount);
+    let effectiveAmount = amount;
+    // BIQUINI EXPRESS: +10% no que o jogador recebe do Banco do Governo
+    if (sender.role === 'system' && sender.username === 'Banco' && receiver.role === 'player') {
+      const biquini = db.prepare("SELECT id FROM special_cards WHERE effect = 'biquini' AND ownerId = ?").get(receiverId);
+      if (biquini) effectiveAmount = amount + Math.round(amount * 0.1);
+    }
+
+    db.prepare('UPDATE users SET balance = balance - ? WHERE id = ?').run(effectiveAmount, senderId);
+    db.prepare('UPDATE users SET balance = balance + ? WHERE id = ?').run(effectiveAmount, receiverId);
+    db.prepare('INSERT INTO transactions (senderId, receiverId, amount) VALUES (?, ?, ?)').run(senderId, receiverId, effectiveAmount);
 
     // Buscar novos saldos e usernames para resposta
     const senderRow = db.prepare('SELECT balance, username FROM users WHERE id = ?').get(senderId);
@@ -313,7 +332,7 @@ io.on('connection', (socket) => {
     // Notifica destinatário com novo saldo
     io.to(`user_${receiverId}`).emit('pix_received', {
       from: senderRow.username,
-      amount,
+      amount: effectiveAmount,
       newBalance: receiverRow?.balance
     });
   });
@@ -341,6 +360,93 @@ io.on('connection', (socket) => {
       amount: tx.amount,
       newBalance: sRow?.balance
     });
+  });
+
+  // Comprar cartão especial (1 unidade por cartão, sem revenda)
+  socket.on('buy_special_card', ({ userId, cardId }) => {
+    const user = db.prepare('SELECT balance, isBankrupt FROM users WHERE id = ?').get(userId);
+    if (!user) return socket.emit('pix_error', 'Usuário não encontrado.');
+    if (user.isBankrupt) return socket.emit('pix_error', 'Você faliu e está fora do jogo.');
+    if (user.balance <= 0) {
+      return socket.emit('pix_error', 'Seu saldo está zerado. Você não pode comprar cartões.');
+    }
+    const card = db.prepare('SELECT * FROM special_cards WHERE id = ?').get(cardId);
+    if (!card) return socket.emit('pix_error', 'Cartão não encontrado.');
+    if (card.ownerId) {
+      const owner = db.prepare('SELECT username FROM users WHERE id = ?').get(card.ownerId);
+      return socket.emit('pix_error', `Este cartão já foi comprado por ${owner?.username || 'outro jogador'}. Só existe 1 unidade e não há revenda.`);
+    }
+    if (user.balance < card.price) {
+      socket.emit('pix_error', `Saldo insuficiente. O cartão ${card.name} custa M$ ${card.price.toLocaleString('pt-BR')}.`);
+      return;
+    }
+
+    const banco = db.prepare("SELECT id FROM users WHERE username = 'Banco'").get();
+    db.prepare('UPDATE special_cards SET ownerId = ? WHERE id = ?').run(userId, card.id);
+    db.prepare('UPDATE users SET balance = balance - ? WHERE id = ?').run(card.price, userId);
+    db.prepare('UPDATE users SET balance = balance + ? WHERE id = ?').run(card.price, banco.id);
+    db.prepare('INSERT INTO transactions (senderId, receiverId, amount) VALUES (?, ?, ?)').run(userId, banco.id, card.price);
+
+    const row = db.prepare('SELECT balance FROM users WHERE id = ?').get(userId);
+    io.emit('game_updated');
+    io.emit('cards_updated');
+    socket.emit('pix_success', { amount: card.price, newBalance: row?.balance, to: `Cartão ${card.name}` });
+  });
+
+  // Usar cartão especial (habilidade)
+  socket.on('use_special_card', ({ userId, cardId, receiverId, amount }) => {
+    const user = db.prepare('SELECT id, balance FROM users WHERE id = ?').get(userId);
+    const card = db.prepare('SELECT * FROM special_cards WHERE id = ?').get(cardId);
+    if (!user || !card) return socket.emit('pix_error', 'Cartão ou usuário não encontrado.');
+    if (card.ownerId !== user.id) return socket.emit('pix_error', 'Você não possui este cartão.');
+    if (card.maxUses > 0 && card.usesUsed >= card.maxUses) {
+      return socket.emit('pix_error', 'Este cartão não tem mais usos disponíveis.');
+    }
+    const banco = db.prepare("SELECT id FROM users WHERE username = 'Banco'").get();
+    const ferias = db.prepare("SELECT id FROM users WHERE username = 'Férias'").get();
+
+    if (card.effect === 'patria') {
+      const tx = db.prepare('SELECT * FROM transactions WHERE senderId = ? AND receiverId = ? AND status = \'completed\' ORDER BY id DESC LIMIT 1')
+        .get(user.id, ferias.id);
+      if (!tx) return socket.emit('pix_error', 'Você não tem pagamentos de imposto (Férias) recentes para isentar.');
+      db.prepare('UPDATE users SET balance = balance + ? WHERE id = ?').run(tx.amount, user.id);
+      db.prepare('UPDATE users SET balance = balance - ? WHERE id = ?').run(tx.amount, ferias.id);
+      db.prepare('UPDATE transactions SET status = \'refunded\' WHERE id = ?').run(tx.id);
+      const row = db.prepare('SELECT balance FROM users WHERE id = ?').get(user.id);
+      io.emit('game_updated');
+      socket.emit('pix_received', { from: 'PATRIA EXPRESS (isenção de imposto)', amount: tx.amount, newBalance: row?.balance });
+    } else if (card.effect === 'snopy') {
+      if (user.balance >= 0) return socket.emit('pix_error', 'Seu saldo já está positivo. Use o cartão quando estiver no vermelho.');
+      const owed = -user.balance;
+      db.prepare('UPDATE users SET balance = 0 WHERE id = ?').run(user.id);
+      db.prepare('UPDATE users SET balance = balance - ? WHERE id = ?').run(owed, banco.id);
+      const row = db.prepare('SELECT balance FROM users WHERE id = ?').get(user.id);
+      io.emit('game_updated');
+      socket.emit('pix_received', { from: 'SNOPY CARD (saí do vermelho)', amount: owed, newBalance: row?.balance });
+    } else if (card.effect === 'adventure') {
+      if (!receiverId || !amount || amount <= 0) return socket.emit('pix_error', 'Escolha a pessoa e o valor a pagar.');
+      if (amount % 1000 !== 0) return socket.emit('pix_error', 'O valor deve ser múltiplo de 1.000.');
+      const receiver = db.prepare('SELECT id, role, username, isBankrupt FROM users WHERE id = ?').get(receiverId);
+      if (!receiver || receiver.role !== 'player' || Number(receiver.id) === Number(user.id)) {
+        return socket.emit('pix_error', 'Destinatário inválido. Escolha outro jogador.');
+      }
+      if (receiver.isBankrupt) return socket.emit('pix_error', 'Esse jogador faliu e está fora do jogo.');
+      db.prepare('UPDATE users SET balance = balance - ? WHERE id = ?').run(amount, banco.id);
+      db.prepare('UPDATE users SET balance = balance + ? WHERE id = ?').run(amount, receiver.id);
+      db.prepare('INSERT INTO transactions (senderId, receiverId, amount) VALUES (?, ?, ?)').run(banco.id, receiver.id, amount);
+      const rRow = db.prepare('SELECT balance FROM users WHERE id = ?').get(receiver.id);
+      io.emit('game_updated');
+      io.to(`user_${receiver.id}`).emit('pix_received', { from: `ADVENTURE CARD (${user.username})`, amount, newBalance: rRow?.balance });
+    } else if (card.effect === 'caveira') {
+      socket.emit('pix_error', '💀 Caveira usada: você está fora da cadeia.');
+    } else {
+      return socket.emit('pix_error', 'Este cartão é passivo e não precisa ser usado.');
+    }
+
+    if (card.maxUses > 0) {
+      db.prepare('UPDATE special_cards SET usesUsed = usesUsed + 1 WHERE id = ?').run(card.id);
+    }
+    io.emit('cards_updated');
   });
 
   // Mercado - Jogador cria anuncio (fica pending_admin)

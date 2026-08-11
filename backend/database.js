@@ -64,6 +64,19 @@ db.exec(`
     FOREIGN KEY(propertyId) REFERENCES properties(id),
     FOREIGN KEY(bidderId) REFERENCES users(id)
   );
+
+  CREATE TABLE IF NOT EXISTS special_cards (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT UNIQUE NOT NULL,
+    emoji TEXT NOT NULL,
+    price REAL NOT NULL,
+    description TEXT NOT NULL,
+    effect TEXT NOT NULL,
+    maxUses INTEGER NOT NULL DEFAULT 1,
+    ownerId INTEGER,
+    usesUsed INTEGER DEFAULT 0,
+    FOREIGN KEY(ownerId) REFERENCES users(id)
+  );
 `);
 
 // Adicionar colunas novas caso o banco já exista sem elas
@@ -97,5 +110,31 @@ if (!db.prepare("SELECT * FROM users WHERE username = 'Banco'").get()) {
 if (!db.prepare("SELECT * FROM users WHERE username = 'Férias'").get()) {
   db.prepare("INSERT INTO users (username, password, role, balance) VALUES ('Férias', 'sistema', 'system', 0)").run();
 }
+
+// Cartões especiais (1 unidade de cada; quem comprar primeiro fica com ele)
+safeAlter('ALTER TABLE special_cards ADD COLUMN image TEXT');
+if (!db.prepare('SELECT COUNT(*) as c FROM special_cards').get().c) {
+  const insert = db.prepare(`
+    INSERT INTO special_cards (name, emoji, price, description, effect, maxUses, image) VALUES (?, ?, ?, ?, ?, ?, ?)
+  `);
+  [
+    ['CAVEIRA CARD', '💀', 500000, 'Faz você sair da cadeia uma vez na partida.', 'caveira', 1, 'caveira-card.png'],
+    ['PATRIA EXPRESS', '🏛️', 700000, 'Isenção de impostos por até 3 vezes no jogo: isenta o seu último pagamento ao Imposto (Férias).', 'patria', 3, 'patria-express.png'],
+    ['ADVENTURE CARD', '🚀', 1000000, 'Pague alguém sem descontar do seu saldo: o Banco paga a pessoa escolhida por você. Uso único no jogo.', 'adventure', 1, 'adventure-card.png'],
+    ['BIQUINI EXPRESS', '🩱', 1250000, 'Passivo: você recebe +10% em todo dinheiro que o Banco do Governo pagar para você.', 'biquini', 0, 'biquini-express.png'],
+    ['KING JAMES', '👑', 1500000, 'Passivo: o jogador que cair na sua casa paga 10% a mais para você.', 'king', 0, 'king-james.png'],
+    ['SNOPY CARD', '🐶', 2500000, 'Sai do vermelho e fica limpo: zera o seu saldo uma vez no jogo (o Banco absorve a dívida).', 'snopy', 1, 'snopy.png'],
+  ].forEach(c => insert.run(...c));
+}
+[
+  ['patria-express.png', 'patria'],
+  ['adventure-card.png', 'adventure'],
+  ['biquini-express.png', 'biquini'],
+  ['caveira-card.png', 'caveira'],
+  ['king-james.png', 'king'],
+  ['snopy.png', 'snopy'],
+].forEach(([img, eff]) => {
+  db.prepare('UPDATE special_cards SET image = ? WHERE effect = ?').run(img, eff);
+});
 
 module.exports = db;
