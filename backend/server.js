@@ -13,6 +13,13 @@ app.use(express.json());
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: '*' } });
 
+// --- PRESENÇA ONLINE ---
+const onlineUsers = new Map(); // socket.id -> userId
+
+const broadcastOnlineUsers = () => {
+  io.emit('online_users', Array.from(new Set(onlineUsers.values())));
+};
+
 // --- UTILS ---
 const checkBankruptcy = (userId, balance) => {
   if (balance <= -1500000) {
@@ -152,7 +159,28 @@ app.use((req, res, next) => {
 io.on('connection', (socket) => {
 
   socket.on('join', (userId) => {
+    userId = String(userId);
+    socket.data.userId = userId;
+    onlineUsers.set(socket.id, userId);
     socket.join(`user_${userId}`);
+    broadcastOnlineUsers();
+  });
+
+  socket.on('disconnect', () => {
+    if (socket.data.userId) {
+      onlineUsers.delete(socket.id);
+      broadcastOnlineUsers();
+    }
+  });
+
+  // Logout: sai da lista de online sem desconectar o socket
+  socket.on('leave', () => {
+    if (socket.data.userId) {
+      socket.leave(`user_${socket.data.userId}`);
+      onlineUsers.delete(socket.id);
+      delete socket.data.userId;
+      broadcastOnlineUsers();
+    }
   });
 
   // Admin Iniciar Jogo

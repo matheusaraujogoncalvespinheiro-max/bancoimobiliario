@@ -42,6 +42,11 @@ function App() {
     notifTimeout.current = setTimeout(() => setNotification(null), 5000);
   };
 
+  const handleLogout = () => {
+    socket.emit('leave');
+    setUser(null);
+  };
+
   useEffect(() => {
     if (user) socket.emit('join', user.id);
   }, [user]);
@@ -206,9 +211,9 @@ function App() {
       {!user ? (
         <Login onLogin={setUser} />
       ) : user.role === 'admin' ? (
-        <AdminPanel socket={socket} onLogout={() => setUser(null)} />
+        <AdminPanel socket={socket} onLogout={handleLogout} />
       ) : (
-        <PlayerDashboard user={user} setUser={setUser} socket={socket} onLogout={() => setUser(null)} />
+        <PlayerDashboard user={user} setUser={setUser} socket={socket} onLogout={handleLogout} />
       )}
     </>
   );

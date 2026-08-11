@@ -17,6 +17,8 @@ function desformatarNumero(valor) {
 export default function PlayerDashboard({ user, setUser, socket, onLogout }) {
   const [activeTab, setActiveTab] = useState('home');
   const [allUsers, setAllUsers] = useState([]); // todos (jogadores + sistema)
+  const [allPlayers, setAllPlayers] = useState([]); // todos os jogadores (para a barra online)
+  const [onlineUsers, setOnlineUsers] = useState([]);
   const [feriasBalance, setFeriasBalance] = useState(0);
   const [history, setHistory] = useState([]);
   const [market, setMarket] = useState([]);
@@ -51,6 +53,7 @@ export default function PlayerDashboard({ user, setUser, socket, onLogout }) {
       const data = await res.json();
       if (data.users && Array.isArray(data.users)) {
         setAllUsers(data.users.filter(u => parseInt(u.id) !== uid));
+        setAllPlayers(data.users.filter(u => u.role === 'player' && !u.isBankrupt));
         const ferias = data.users.find(u => u.username === 'Férias');
         if (ferias) setFeriasBalance(ferias.balance);
         // Atualizar saldo do próprio user
@@ -110,10 +113,12 @@ export default function PlayerDashboard({ user, setUser, socket, onLogout }) {
     socket.on('game_updated', () => { fetchData(); fetchHistory(); fetchLoans(); });
     socket.on('market_updated', () => fetchMarket());
     socket.on('ferias_updated', (data) => { setFeriasBalance(data.balance ?? 0); });
+    socket.on('online_users', (ids) => setOnlineUsers(ids));
     return () => {
       socket.off('game_updated');
       socket.off('market_updated');
       socket.off('ferias_updated');
+      socket.off('online_users');
     };
   }, [socket]);
 
@@ -208,6 +213,22 @@ export default function PlayerDashboard({ user, setUser, socket, onLogout }) {
         <button className="btn-secondary" style={{ width: 'auto', padding: '8px 16px', flexShrink: 0 }} onClick={onLogout}>
           <LogOut size={18} /> Sair
         </button>
+      </div>
+
+      {/* Barra de quem está online */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflowX: 'auto', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '10px 14px', marginBottom: '20px' }}>
+        <span style={{ fontSize: '12px', fontWeight: 'bold', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+          🟢 {allPlayers.filter(u => onlineUsers.includes(String(u.id))).length} online
+        </span>
+        {allPlayers.map(u => {
+          const isOnline = onlineUsers.includes(String(u.id));
+          return (
+            <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: '6px', background: isOnline ? '#f0fdf4' : 'white', borderRadius: '20px', padding: '4px 10px', border: `1px solid ${isOnline ? '#bbf7d0' : '#e2e8f0'}`, flexShrink: 0 }}>
+              <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: isOnline ? '#22c55e' : '#cbd5e1' }} />
+              <span style={{ fontSize: '12px', fontWeight: '600', color: isOnline ? '#166534' : 'var(--text-muted)' }}>{u.username}</span>
+            </div>
+          );
+        })}
       </div>
 
       {/* Cartão */}
