@@ -72,6 +72,9 @@ const safeAlter = (sql) => {
 };
 safeAlter("ALTER TABLE properties ADD COLUMN description TEXT");
 safeAlter("ALTER TABLE properties ADD COLUMN numHouses INTEGER DEFAULT 0");
+safeAlter("ALTER TABLE properties ADD COLUMN buyerId INTEGER");
+safeAlter("ALTER TABLE properties ADD COLUMN soldPrice REAL");
+safeAlter("ALTER TABLE properties ADD COLUMN soldAt DATETIME");
 safeAlter("ALTER TABLE users ADD COLUMN isBankrupt BOOLEAN DEFAULT 0");
 safeAlter("ALTER TABLE transactions ADD COLUMN status TEXT DEFAULT 'completed'");
 safeAlter("ALTER TABLE game_state ADD COLUMN feriasTax REAL DEFAULT 50000");

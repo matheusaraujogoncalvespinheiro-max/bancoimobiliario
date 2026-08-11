@@ -117,6 +117,20 @@ app.get('/api/market/mine/:userId', (req, res) => {
   res.json(rows || []);
 });
 
+// Histórico de vendas de imóveis
+app.get('/api/market/history', (req, res) => {
+  const rows = db.prepare(`
+    SELECT p.id, p.description, p.numHouses, p.askingPrice, p.bankOffer, p.soldPrice, p.soldAt,
+           u.username as sellerName, b.username as buyerName
+    FROM properties p 
+    JOIN users u ON p.sellerId = u.id 
+    LEFT JOIN users b ON p.buyerId = b.id
+    WHERE p.status = 'sold' AND p.soldAt IS NOT NULL
+    ORDER BY p.soldAt DESC
+  `).all();
+  res.json(rows || []);
+});
+
 // Servir o site (frontend buildado) quando estiver pronto pra produção
 const distDir = fs.existsSync(path.join(__dirname, 'public', 'index.html'))
   ? path.join(__dirname, 'public')
@@ -313,6 +327,21 @@ io.on('connection', (socket) => {
     io.emit('market_updated');
   });
 
+  // Dono do anúncio exclui (remove de vez) o próprio anúncio
+  socket.on('delete_listing', ({ propertyId, sellerId }) => {
+    const prop = db.prepare('SELECT * FROM properties WHERE id = ?').get(propertyId);
+    if (!prop) return;
+    if (Number(prop.sellerId) !== Number(sellerId)) {
+      return socket.emit('pix_error', 'Você só pode excluir os seus próprios anúncios.');
+    }
+    if (prop.status === 'sold') {
+      return socket.emit('pix_error', 'Imóvel já vendido não pode ser excluído.');
+    }
+    db.prepare('DELETE FROM property_bids WHERE propertyId = ?').run(propertyId);
+    db.prepare('DELETE FROM properties WHERE id = ?').run(propertyId);
+    io.emit('market_updated');
+  });
+
   // Compra entre jogadores: um jogador compra imóvel de outro
   socket.on('buy_property', ({ buyerId, propertyId }) => {
     const prop = db.prepare('SELECT * FROM properties WHERE id = ? AND status = \'active\'').get(propertyId);
@@ -331,7 +360,8 @@ io.on('connection', (socket) => {
 
     db.prepare('UPDATE users SET balance = balance - ? WHERE id = ?').run(prop.askingPrice, buyerId);
     db.prepare('UPDATE users SET balance = balance + ? WHERE id = ?').run(prop.askingPrice, prop.sellerId);
-    db.prepare('UPDATE properties SET status = \'sold\' WHERE id = ?').run(propertyId);
+    db.prepare("UPDATE properties SET status = 'sold', buyerId = ?, soldPrice = ?, soldAt = CURRENT_TIMESTAMP WHERE id = ?")
+      .run(buyerId, prop.askingPrice, propertyId);
     db.prepare('INSERT INTO transactions (senderId, receiverId, amount) VALUES (?, ?, ?)').run(buyerId, prop.sellerId, prop.askingPrice);
 
     const bRow = db.prepare('SELECT balance FROM users WHERE id = ?').get(buyerId);
@@ -366,7 +396,8 @@ io.on('connection', (socket) => {
     if (seller && seller.isBankrupt) return;
     const banco = db.prepare("SELECT id FROM users WHERE username = 'Banco'").get();
     db.prepare('UPDATE users SET balance = balance + ? WHERE id = ?').run(prop.bankOffer, prop.sellerId);
-    db.prepare('UPDATE properties SET status = \'sold\' WHERE id = ?').run(propertyId);
+    db.prepare("UPDATE properties SET status = 'sold', buyerId = ?, soldPrice = ?, soldAt = CURRENT_TIMESTAMP WHERE id = ?")
+      .run(banco.id, prop.bankOffer, propertyId);
     db.prepare('INSERT INTO transactions (senderId, receiverId, amount) VALUES (?, ?, ?)').run(banco.id, prop.sellerId, prop.bankOffer);
     const sRow = db.prepare('SELECT balance FROM users WHERE id = ?').get(prop.sellerId);
     io.emit('market_updated');

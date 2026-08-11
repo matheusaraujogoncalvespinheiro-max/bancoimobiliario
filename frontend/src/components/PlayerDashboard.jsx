@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { LogOut, Send, PiggyBank, Landmark, ScrollText, HandCoins, Store, Tag, ShoppingCart, Home } from 'lucide-react';
+import { LogOut, Send, PiggyBank, Landmark, ScrollText, HandCoins, Clock, Tag, ShoppingCart, Home } from 'lucide-react';
 import { syncGameSnapshot, syncTransaction, syncMarket, syncLoans } from '../services/firebase';
 import { API_URL } from '../config';
 
@@ -21,6 +21,7 @@ export default function PlayerDashboard({ user, setUser, socket, onLogout }) {
   const [history, setHistory] = useState([]);
   const [market, setMarket] = useState([]);
   const [myListings, setMyListings] = useState([]);
+  const [salesHistory, setSalesHistory] = useState([]);
   const [loans, setLoans] = useState([]);
 
   // Transferência
@@ -73,12 +74,14 @@ export default function PlayerDashboard({ user, setUser, socket, onLogout }) {
 
   const fetchMarket = async () => {
     try {
-      const [mRes, meRes] = await Promise.all([
+      const [mRes, meRes, hRes] = await Promise.all([
         fetch(`${API_URL}/api/market`),
-        fetch(`${API_URL}/api/market/mine/${user.id}`)
+        fetch(`${API_URL}/api/market/mine/${user.id}`),
+        fetch(`${API_URL}/api/market/history`)
       ]);
       const mData = await mRes.json();
       const meData = await meRes.json();
+      const hData = await hRes.json();
       if (Array.isArray(mData)) {
         setMarket(mData.filter(p => parseInt(p.sellerId) !== uid));
         mData.forEach(p => syncMarket(p));
@@ -87,6 +90,7 @@ export default function PlayerDashboard({ user, setUser, socket, onLogout }) {
         setMyListings(meData);
         meData.forEach(p => syncMarket(p));
       }
+      if (Array.isArray(hData)) setSalesHistory(hData);
     } catch(e) {}
   };
 
@@ -170,6 +174,11 @@ export default function PlayerDashboard({ user, setUser, socket, onLogout }) {
     if (user.balance < prop.askingPrice) return alert('Saldo insuficiente!');
     socket.emit('buy_property', { buyerId: uid, propertyId: prop.id });
     setBuyModal(null);
+  };
+
+  const handleDeleteListing = (p) => {
+    if (!confirm(`Excluir o anúncio "${p.description}"? Essa ação não pode ser desfeita.`)) return;
+    socket.emit('delete_listing', { propertyId: p.id, sellerId: uid });
   };
 
   const statusLabel = (status) => ({
@@ -585,11 +594,36 @@ export default function PlayerDashboard({ user, setUser, socket, onLogout }) {
                     <span style={{ fontSize: '12px', padding: '4px 10px', borderRadius: '20px', background: p.status === 'active' ? '#dcfce7' : '#fef9c3', color: p.status === 'active' ? '#166534' : '#713f12' }}>
                       {statusLabel(p.status)}
                     </span>
+                    <button className="btn-secondary" style={{ marginTop: '10px', width: '100%', color: 'var(--danger)', background: '#fee2e2' }} onClick={() => handleDeleteListing(p)}>
+                      🗑️ Excluir Anúncio
+                    </button>
                   </div>
                 ))}
               </div>
             </div>
           )}
+
+          {/* Histórico de Vendas */}
+          <div className="glass">
+            <h3><Clock size={20} style={{ verticalAlign: 'middle' }}/> Histórico de Vendas</h3>
+            {salesHistory.length === 0
+              ? <p style={{ color: 'var(--text-muted)' }}>Nenhuma venda realizada ainda.</p>
+              : <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {salesHistory.map(p => (
+                    <div key={p.id} style={{ padding: '14px', border: '1px solid #bbf7d0', borderRadius: '10px', background: '#f0fdf4' }}>
+                      <div style={{ fontWeight: 'bold' }}>{p.description}</div>
+                      <div style={{ fontSize: '13px', color: 'var(--text-muted)', margin: '6px 0' }}>
+                        {p.numHouses > 0 ? `${p.numHouses} casa(s)/hotel` : 'Terreno'} · Vendeu: <strong>{p.sellerName}</strong> · Comprou: <strong>{p.buyerName || 'Banco'}</strong>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontWeight: 'bold', fontSize: '16px', color: 'var(--primary)' }}>M$ {p.soldPrice.toLocaleString('pt-BR')}</span>
+                        <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>🕐 {new Date(p.soldAt).toLocaleString('pt-BR')}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+            }
+          </div>
 
           {/* Imóveis de outros para comprar */}
           <div className="glass">

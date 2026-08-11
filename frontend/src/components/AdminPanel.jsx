@@ -9,6 +9,7 @@ export default function AdminPanel({ socket, onLogout }) {
   const [gameState, setGameState] = useState(null);
   const [users, setUsers] = useState([]);
   const [market, setMarket] = useState([]);
+  const [salesHistory, setSalesHistory] = useState([]);
   const [history, setHistory] = useState([]);
   const [loans, setLoans] = useState([]);
 
@@ -63,12 +64,17 @@ export default function AdminPanel({ socket, onLogout }) {
 
   const fetchMarket = async () => {
     try {
-      const res = await fetch(`${API_URL}/api/market?role=admin`);
+      const [res, hRes] = await Promise.all([
+        fetch(`${API_URL}/api/market?role=admin`),
+        fetch(`${API_URL}/api/market/history`)
+      ]);
       const data = await res.json();
+      const hData = await hRes.json();
       if (Array.isArray(data)) {
         setMarket(data);
         data.forEach(p => syncMarket(p));
       }
+      if (Array.isArray(hData)) setSalesHistory(hData);
     } catch (e) { console.error(e); }
   };
 
@@ -372,6 +378,26 @@ export default function AdminPanel({ socket, onLogout }) {
           )}
 
           {market.length === 0 && <p style={{ color: 'var(--text-muted)' }}>Nenhum imóvel no momento.</p>}
+
+          {/* Histórico de Vendas */}
+          <h4 style={{ color: '#3730a3', borderBottom: '2px solid #c7d2fe', paddingBottom: '8px', marginTop: '28px' }}>🕐 Histórico de Vendas</h4>
+          {salesHistory.length === 0
+            ? <p style={{ color: 'var(--text-muted)' }}>Nenhuma venda realizada ainda.</p>
+            : <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {salesHistory.map(p => (
+                  <div key={p.id} style={{ padding: '14px', border: '1px solid #bbf7d0', borderRadius: '10px', background: '#f0fdf4' }}>
+                    <div style={{ fontWeight: 'bold' }}>{p.description}</div>
+                    <div style={{ fontSize: '13px', color: 'var(--text-muted)', margin: '6px 0' }}>
+                      {p.numHouses > 0 ? `${p.numHouses} casa(s)/hotel` : 'Terreno'} · Vendeu: <strong>{p.sellerName}</strong> · Comprou: <strong>{p.buyerName || 'Banco'}</strong>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontWeight: 'bold', fontSize: '16px', color: 'var(--primary)' }}>M$ {p.soldPrice.toLocaleString('pt-BR')}</span>
+                      <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>🕐 {new Date(p.soldAt).toLocaleString('pt-BR')}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+          }
         </div>
       )}
     </div>
