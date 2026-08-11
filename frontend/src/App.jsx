@@ -102,6 +102,10 @@ function App() {
       pushNotif('error', '☠️ FALÊNCIA!', 'Seu saldo chegou a -1.5M. Você está eliminado.');
     });
 
+    socket.on('card_use_approved', (data) => {
+      pushNotif('success', '🃏 Uso autorizado!', `O Admin autorizou o uso do ${data.cardName}.`);
+    });
+
     socket.on('game_reset', () => {
       setUser(prev => {
         if (prev && prev.role !== 'admin') return null;
@@ -122,6 +126,7 @@ function App() {
       socket.off('ferias_updated');
       socket.off('pix_error');
       socket.off('bankrupt');
+      socket.off('card_use_approved');
       socket.off('game_reset');
     };
   }, []);

@@ -26,6 +26,7 @@ export default function PlayerDashboard({ user, setUser, socket, onLogout }) {
   const [salesHistory, setSalesHistory] = useState([]);
   const [loans, setLoans] = useState([]);
   const [specialCards, setSpecialCards] = useState([]);
+  const [myCardRequests, setMyCardRequests] = useState([]);
 
   // Transferência
   const [selectedReceiver, setSelectedReceiver] = useState(null);
@@ -122,19 +123,29 @@ export default function PlayerDashboard({ user, setUser, socket, onLogout }) {
     } catch(e) {}
   };
 
+  const fetchMyCardRequests = async () => {
+    try {
+      const res = await fetch(`${API_URL}/api/card_use_requests?userId=${user.id}`);
+      const data = await res.json();
+      if (Array.isArray(data)) setMyCardRequests(data);
+    } catch(e) {}
+  };
+
   useEffect(() => {
-    fetchData(); fetchHistory(); fetchMarket(); fetchLoans(); fetchSpecialCards();
+    fetchData(); fetchHistory(); fetchMarket(); fetchLoans(); fetchSpecialCards(); fetchMyCardRequests();
     socket.on('game_updated', () => { fetchData(); fetchHistory(); fetchLoans(); });
     socket.on('market_updated', () => fetchMarket());
     socket.on('ferias_updated', (data) => { setFeriasBalance(data.balance ?? 0); });
     socket.on('online_users', (ids) => setOnlineUsers(ids));
     socket.on('cards_updated', () => fetchSpecialCards());
+    socket.on('card_requests_updated', () => fetchMyCardRequests());
     return () => {
       socket.off('game_updated');
       socket.off('market_updated');
       socket.off('ferias_updated');
       socket.off('online_users');
       socket.off('cards_updated');
+      socket.off('card_requests_updated');
     };
   }, [socket]);
 
@@ -220,15 +231,15 @@ export default function PlayerDashboard({ user, setUser, socket, onLogout }) {
       setAdventureModal(c);
       return;
     }
-    if (!confirm(`Usar o cartão ${c.emoji} ${c.name} agora?`)) return;
-    socket.emit('use_special_card', { userId: uid, cardId: c.id });
+    if (!confirm(`Usar o cartão ${c.name} agora? O uso precisa da autorização do Admin.`)) return;
+    socket.emit('request_card_use', { userId: uid, cardId: c.id });
   };
 
   const handleConfirmAdventure = () => {
     const val = desformatarNumero(adventureAmountDisplay);
     if (!adventureReceiverId || val <= 0) return alert('Escolha o jogador e informe o valor.');
     if (val % 1000 !== 0) return alert('O valor deve ser múltiplo de 1.000.');
-    socket.emit('use_special_card', { userId: uid, cardId: adventureModal.id, receiverId: Number(adventureReceiverId), amount: val });
+    socket.emit('request_card_use', { userId: uid, cardId: adventureModal.id, receiverId: Number(adventureReceiverId), amount: val });
     setAdventureModal(null);
   };
 
@@ -292,8 +303,8 @@ export default function PlayerDashboard({ user, setUser, socket, onLogout }) {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
           <div className="card-name">{user.username}</div>
           {ownedCards.length > 0 ? (
-            <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-              {ownedCards.map(c => <img key={c.id} src={`/cards/${c.image}`} alt={c.name} title={`${c.name}: ${c.description}`} style={{ width: '30px', height: '42px', objectFit: 'cover', borderRadius: '4px' }} />)}
+            <div style={{ display: 'flex', gap: '4px', alignItems: 'center', height: '42px' }}>
+              {ownedCards.map(c => <img key={c.id} src={`/cards/${c.image}`} alt={c.name} title={`${c.name}: ${c.description}`} style={{ height: '42px', width: '60px', objectFit: 'cover', borderRadius: '4px' }} />)}
             </div>
           ) : (
             <Landmark size={28} opacity={0.5} />
@@ -457,11 +468,12 @@ export default function PlayerDashboard({ user, setUser, socket, onLogout }) {
               const ownedByOther = c.ownerId && !ownedByMe;
               const cantBuy = ownedByOther || user.balance <= 0 || user.balance < c.price;
               const usesLeft = (c.maxUses || 0) - (c.usesUsed || 0);
-              const usable = ownedByMe && c.maxUses > 0 && usesLeft > 0;
+              const isPending = myCardRequests.some(r => Number(r.cardId) === c.id);
+              const usable = ownedByMe && c.maxUses > 0 && usesLeft > 0 && !isPending;
               return (
                 <div key={c.id} style={{ padding: '14px', border: ownedByMe ? '2px solid #86efac' : '1px solid #e2e8f0', borderRadius: '12px', background: ownedByMe ? '#f0fdf4' : 'white' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
-                    <img src={`/cards/${c.image}`} alt={c.name} style={{ width: '86px', height: '120px', objectFit: 'cover', borderRadius: '10px', boxShadow: '0 4px 12px rgba(0,0,0,0.25)', flexShrink: 0 }} />
+                    <img src={`/cards/${c.image}`} alt={c.name} style={{ width: '120px', height: '86px', objectFit: 'cover', borderRadius: '10px', boxShadow: '0 4px 12px rgba(0,0,0,0.25)', flexShrink: 0 }} />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontWeight: 'bold', fontSize: '16px' }}>{c.name}</div>
                       <div style={{ fontWeight: 'bold', color: 'var(--primary)', fontSize: '15px', marginTop: '4px' }}>M$ {c.price.toLocaleString('pt-BR')}</div>
@@ -476,7 +488,7 @@ export default function PlayerDashboard({ user, setUser, socket, onLogout }) {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
                     <div style={{ fontSize: '12px', fontWeight: '600', color: ownedByMe ? '#166534' : 'var(--text-muted)' }}>
                       {ownedByMe
-                        ? (c.maxUses > 0 ? `✓ Seu cartão · ${usesLeft} uso(s) restante(s)` : '✓ Seu cartão · Passivo')
+                        ? (isPending ? '⏳ Aguardando aprovação do Admin' : (c.maxUses > 0 ? `✓ Seu cartão · ${usesLeft} uso(s) restante(s)` : '✓ Seu cartão · Passivo'))
                         : ownedByOther
                           ? `🔒 Comprado por ${c.ownerName}`
                           : 'Disponível para compra'}
@@ -495,6 +507,11 @@ export default function PlayerDashboard({ user, setUser, socket, onLogout }) {
                       {usable && (
                         <button className="btn-primary" style={{ background: '#16a34a' }} onClick={() => handleUseCard(c)}>
                           Usar ({usesLeft})
+                        </button>
+                      )}
+                      {isPending && (
+                        <button className="btn-secondary" disabled style={{ opacity: 0.6 }}>
+                          ⏳ Em aprovação
                         </button>
                       )}
                     </div>

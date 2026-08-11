@@ -75,7 +75,20 @@ db.exec(`
     maxUses INTEGER NOT NULL DEFAULT 1,
     ownerId INTEGER,
     usesUsed INTEGER DEFAULT 0,
+    image TEXT,
     FOREIGN KEY(ownerId) REFERENCES users(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS card_use_requests (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    cardId INTEGER,
+    userId INTEGER,
+    receiverId INTEGER,
+    amount REAL,
+    status TEXT DEFAULT 'pending',
+    createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(cardId) REFERENCES special_cards(id),
+    FOREIGN KEY(userId) REFERENCES users(id)
   );
 `);
 

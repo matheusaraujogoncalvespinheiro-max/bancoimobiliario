@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { LogOut, PlusCircle, Gift, Landmark, Clock, RefreshCcw, ScrollText, PiggyBank, HandCoins } from 'lucide-react';
+import { LogOut, PlusCircle, Gift, Landmark, Clock, RefreshCcw, ScrollText, PiggyBank, HandCoins, CreditCard, Check, X } from 'lucide-react';
 import { syncGameSnapshot, syncTransaction, syncMarket, syncLoans } from '../services/firebase';
 import { API_URL } from '../config';
 
@@ -12,6 +12,8 @@ export default function AdminPanel({ socket, onLogout }) {
   const [salesHistory, setSalesHistory] = useState([]);
   const [history, setHistory] = useState([]);
   const [loans, setLoans] = useState([]);
+  const [specialCards, setSpecialCards] = useState([]);
+  const [cardRequests, setCardRequests] = useState([]);
 
   const [bancoId, setBancoId] = useState(null);
   const [feriasId, setFeriasId] = useState(null);
@@ -90,20 +92,42 @@ export default function AdminPanel({ socket, onLogout }) {
     } catch (e) { console.error(e); }
   };
 
+  const fetchSpecialCards = async () => {
+    try {
+      const res = await fetch(`${API_URL}/api/special_cards`);
+      const data = await res.json();
+      if (Array.isArray(data)) setSpecialCards(data);
+    } catch (e) { console.error(e); }
+  };
+
+  const fetchCardRequests = async () => {
+    try {
+      const res = await fetch(`${API_URL}/api/card_use_requests`);
+      const data = await res.json();
+      if (Array.isArray(data)) setCardRequests(data);
+    } catch (e) { console.error(e); }
+  };
+
   useEffect(() => {
     fetchData();
     fetchHistory();
     fetchMarket();
     fetchLoans();
+    fetchSpecialCards();
+    fetchCardRequests();
 
     socket.on('game_updated', () => { fetchData(); fetchHistory(); fetchLoans(); });
     socket.on('market_updated', () => { fetchMarket(); fetchHistory(); });
     socket.on('online_users', (ids) => setOnlineUsers(ids));
+    socket.on('cards_updated', () => fetchSpecialCards());
+    socket.on('card_requests_updated', () => fetchCardRequests());
 
     return () => {
       socket.off('game_updated');
       socket.off('market_updated');
       socket.off('online_users');
+      socket.off('cards_updated');
+      socket.off('card_requests_updated');
     };
   }, [socket]);
 
@@ -170,6 +194,11 @@ export default function AdminPanel({ socket, onLogout }) {
     showMessage('Compra pelo banco aprovada!');
   };
 
+  const handleApproveCardUse = (requestId, approved) => {
+    socket.emit('approve_card_use', { requestId, approved });
+    showMessage(approved ? 'Uso do cartão autorizado!' : 'Uso do cartão negado.');
+  };
+
   const handleResetGame = () => {
     const typed = prompt(
       'Isso vai APAGAR TUDO (jogadores, saldos, transações, imóveis, empréstimos e rodadas) e começar um novo jogo.\n\nDigite ZERAR para confirmar:'
@@ -227,6 +256,7 @@ export default function AdminPanel({ socket, onLogout }) {
         <button className={activeTab === 'emprestimos' ? 'btn-primary' : 'btn-secondary'} onClick={() => setActiveTab('emprestimos')}>Empréstimos</button>
         <button className={activeTab === 'extrato' ? 'btn-primary' : 'btn-secondary'} onClick={() => setActiveTab('extrato')}>Extrato Global</button>
         <button className={activeTab === 'mercado' ? 'btn-primary' : 'btn-secondary'} onClick={() => setActiveTab('mercado')}>Mercado</button>
+        <button className={activeTab === 'cartoes' ? 'btn-primary' : 'btn-secondary'} onClick={() => setActiveTab('cartoes')}>Cartões</button>
       </div>
 
       {activeTab === 'jogadores' && (
@@ -417,6 +447,76 @@ export default function AdminPanel({ socket, onLogout }) {
                 ))}
               </div>
           }
+        </div>
+      )}
+
+      {activeTab === 'cartoes' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          {/* Solicitações de uso pendentes */}
+          <div className="glass" style={{ border: cardRequests.length > 0 ? '2px solid #fde68a' : '1px solid #e2e8f0', background: cardRequests.length > 0 ? '#fff9e6' : 'white' }}>
+            <h3 style={{ color: '#92400e' }}><Clock size={20} style={{ verticalAlign: 'middle', marginRight: '8px' }}/> Autorizar Uso de Cartão</h3>
+            <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginBottom: '14px' }}>
+              Quando um jogador pedir para usar um cartão, autorize ou negue aqui para controlar a partida.
+            </p>
+            {cardRequests.length === 0
+              ? <p style={{ color: 'var(--text-muted)' }}>Nenhuma solicitação de uso pendente.</p>
+              : <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {cardRequests.map(r => (
+                    <div key={r.id} style={{ padding: '12px', border: '1px solid #fde68a', borderRadius: '10px', background: 'white' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <img src={`/cards/${r.image}`} alt={r.cardName} style={{ width: '72px', height: '52px', objectFit: 'cover', borderRadius: '6px', flexShrink: 0 }} />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontWeight: 'bold' }}>{r.username} quer usar <span style={{ color: 'var(--primary)' }}>{r.cardName}</span></div>
+                          {r.receiverName && (
+                            <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
+                              Pagando para: <strong>{r.receiverName}</strong> · M$ {Number(r.amount).toLocaleString('pt-BR')}
+                            </div>
+                          )}
+                          <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>🕐 {new Date(r.createdAt).toLocaleString('pt-BR')}</div>
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
+                        <button className="btn-primary" style={{ flex: 1, background: '#16a34a' }} onClick={() => handleApproveCardUse(r.id, true)}>
+                          <Check size={16} style={{ verticalAlign: 'middle' }}/> Autorizar
+                        </button>
+                        <button className="btn-secondary" style={{ flex: 1, color: 'var(--danger)', background: '#fee2e2' }} onClick={() => handleApproveCardUse(r.id, false)}>
+                          <X size={16} style={{ verticalAlign: 'middle' }}/> Negar
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+            }
+          </div>
+
+          {/* Mercado de Cartões */}
+          <div className="glass">
+            <h3><CreditCard size={20} style={{ verticalAlign: 'middle', marginRight: '8px' }}/> Mercado de Cartões</h3>
+            <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginBottom: '14px' }}>
+              Cada cartão tem apenas 1 unidade. Veja quem já comprou cada um.
+            </p>
+            {specialCards.length === 0
+              ? <p style={{ color: 'var(--text-muted)' }}>Nenhum cartão cadastrado.</p>
+              : <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {specialCards.map(c => (
+                    <div key={c.id} style={{ padding: '12px', border: '1px solid #e2e8f0', borderRadius: '10px', background: 'white' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <img src={`/cards/${c.image}`} alt={c.name} style={{ width: '96px', height: '68px', objectFit: 'cover', borderRadius: '8px', flexShrink: 0 }} />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontWeight: 'bold' }}>{c.name} <span style={{ color: 'var(--primary)' }}>M$ {c.price.toLocaleString('pt-BR')}</span></div>
+                          <div style={{ fontSize: '13px', color: 'var(--text-muted)', margin: '4px 0' }}>{c.description}</div>
+                          <div style={{ fontSize: '12px', fontWeight: '600' }}>
+                            {c.ownerName
+                              ? <span style={{ color: '#166534' }}>👤 Dono: {c.ownerName}{c.maxUses > 0 ? ` · Uso: ${c.usesUsed}/${c.maxUses}` : ''}</span>
+                              : <span style={{ color: '#92400e' }}>Disponível para compra</span>}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+            }
+          </div>
         </div>
       )}
     </div>
