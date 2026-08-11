@@ -176,7 +176,9 @@ export default function PlayerDashboard({ user, setUser, socket, onLogout }) {
     pending_admin: '⏳ Aguardando aprovação',
     active: '✅ Publicado',
     sold: '✔️ Vendido',
-    canceled: '❌ Cancelado'
+    canceled: '❌ Cancelado',
+    completed: 'Concluído',
+    refunded: '🔁 Estornado'
   }[status] || status);
 
   const tabs = [
@@ -412,7 +414,7 @@ export default function PlayerDashboard({ user, setUser, socket, onLogout }) {
               </p>
               <p style={{ display: 'flex', justifyContent: 'space-between', margin: '8px 0' }}>
                 <span style={{ color: 'var(--text-muted)' }}>Status:</span>
-                <strong>{receiptTx.status}</strong>
+                <strong>{statusLabel(receiptTx.status)}</strong>
               </p>
             </div>
             <button className="btn-primary" style={{ width: '100%', marginTop: '12px' }} onClick={() => setReceiptTx(null)}>Concluído</button>
@@ -441,7 +443,7 @@ export default function PlayerDashboard({ user, setUser, socket, onLogout }) {
                     </span>
                   </div>
                   <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                    🕐 {new Date(tx.timestamp).toLocaleString('pt-BR')} · Status: {tx.status}
+                    🕐 {new Date(tx.timestamp).toLocaleString('pt-BR')} · Status: {statusLabel(tx.status)}
                   </div>
                   <div style={{ marginTop: '8px', fontSize: '12px', color: 'var(--primary)', fontWeight: '600' }}>
                     🧾 Toque para ver o comprovante completo

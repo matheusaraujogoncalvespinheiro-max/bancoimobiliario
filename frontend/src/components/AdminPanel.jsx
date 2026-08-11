@@ -151,6 +151,11 @@ export default function AdminPanel({ socket, onLogout }) {
     }
   };
 
+  const statusLabel = (status) => ({
+    completed: 'Concluído',
+    refunded: '🔁 Estornado'
+  }[status] || status);
+
   const handleApprovePurchase = (propertyId) => {
     socket.emit('approve_bank_purchase', propertyId);
     showMessage('Compra pelo banco aprovada!');
@@ -285,7 +290,7 @@ export default function AdminPanel({ socket, onLogout }) {
               </div>
           }
           <p style={{ color: 'var(--text-muted)', fontSize: '12px', marginTop: '16px' }}>
-            ⏱️ Ao avançar a rodada, o total devido é descontado automaticamente do jogador (e o pote de Férias é recarregado com a cobrança de todos).
+            ⏱️ Ao avançar a rodada, o total devido dos empréstimos vencidos é descontado automaticamente do jogador.
           </p>
         </div>
       )}
@@ -298,11 +303,11 @@ export default function AdminPanel({ socket, onLogout }) {
               <div key={tx.id} style={{ padding: '16px', border: '1px solid #e2e8f0', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
                   <div style={{ fontWeight: '600' }}>{tx.sender} ➔ {tx.receiver}</div>
-                  <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{new Date(tx.timestamp).toLocaleString('pt-BR')} | Status: {tx.status}</div>
+                  <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{new Date(tx.timestamp).toLocaleString('pt-BR')} | Status: {statusLabel(tx.status)}</div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                   <span style={{ fontWeight: 'bold', fontSize: '18px' }}>M$ {tx.amount.toLocaleString('pt-BR')}</span>
-                  {tx.status === 'completed' && (tx.receiver === 'Banco' || tx.receiver === 'Férias') && (
+                  {tx.status === 'completed' && (tx.receiver === 'Banco' || tx.receiver === 'Férias' || tx.receiver === 'admin') && (
                     <button className="btn-secondary" style={{ padding: '8px', background: '#fee2e2', color: 'var(--danger)' }} onClick={() => handleRefund(tx.id)}>Estornar</button>
                   )}
                 </div>

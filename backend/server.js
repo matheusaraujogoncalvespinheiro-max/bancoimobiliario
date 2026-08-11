@@ -184,32 +184,6 @@ io.on('connection', (socket) => {
       }
     });
 
-    // Cobra o potinho de Férias de TODOS os jogadores ativos a cada rodada
-    const gs = db.prepare('SELECT feriasTax FROM game_state WHERE id = 1').get();
-    const tax = gs && gs.feriasTax ? gs.feriasTax : 50000;
-    const ferias = db.prepare("SELECT id, balance FROM users WHERE username = 'Férias'").get();
-    const players = db.prepare("SELECT id FROM users WHERE role = 'player' AND isBankrupt = 0").all();
-
-    players.forEach(p => {
-      if (ferias) {
-        db.prepare('UPDATE users SET balance = balance + ? WHERE id = ?').run(tax, ferias.id);
-      }
-      db.prepare('UPDATE users SET balance = balance - ? WHERE id = ?').run(tax, p.id);
-      const u = db.prepare('SELECT balance FROM users WHERE id = ?').get(p.id);
-      if (u) {
-        if (checkBankruptcy(p.id, u.balance)) {
-          io.to(`user_${p.id}`).emit('bankrupt');
-        }
-        io.to(`user_${p.id}`).emit('ferias_charged', {
-          amount: tax, newBalance: u.balance
-        });
-      }
-    });
-
-    if (ferias) {
-      const f = db.prepare('SELECT balance FROM users WHERE id = ?').get(ferias.id);
-      io.emit('ferias_updated', { balance: f ? f.balance : 0 });
-    }
     io.emit('game_updated');
   });
 
@@ -283,16 +257,21 @@ io.on('connection', (socket) => {
 
   // Estorno (Admin)
   socket.on('refund_transaction', (transactionId) => {
-    const tx = db.prepare('SELECT * FROM transactions WHERE id = ? AND status = "completed"').get(transactionId);
+    const tx = db.prepare('SELECT * FROM transactions WHERE id = ? AND status = \'completed\'').get(transactionId);
     if (!tx) return;
     db.prepare('UPDATE users SET balance = balance + ? WHERE id = ?').run(tx.amount, tx.senderId);
     db.prepare('UPDATE users SET balance = balance - ? WHERE id = ?').run(tx.amount, tx.receiverId);
-    db.prepare('UPDATE transactions SET status = "refunded" WHERE id = ?').run(transactionId);
+    db.prepare('UPDATE transactions SET status = \'refunded\' WHERE id = ?').run(transactionId);
+
+    const sRow = db.prepare('SELECT username, balance FROM users WHERE id = ?').get(tx.senderId);
+    const rRow = db.prepare('SELECT username, balance FROM users WHERE id = ?').get(tx.receiverId);
     io.emit('game_updated');
-    const r = db.prepare('SELECT username FROM users WHERE id = ?').get(tx.receiverId);
+
+    // Devolve o dinheiro pra quem tinha enviado (o jogador)
     io.to(`user_${tx.senderId}`).emit('pix_received', {
-      from: `Estorno (${r?.username || 'Banco'})`,
-      amount: tx.amount
+      from: `Estorno (${rRow?.username || 'Banco'})`,
+      amount: tx.amount,
+      newBalance: sRow?.balance
     });
   });
 
@@ -307,19 +286,19 @@ io.on('connection', (socket) => {
 
   // Admin aprova a PUBLICAÇÃO do anúncio
   socket.on('approve_listing', (propertyId) => {
-    db.prepare('UPDATE properties SET status = "active" WHERE id = ? AND status = "pending_admin"').run(propertyId);
+    db.prepare('UPDATE properties SET status = \'active\' WHERE id = ? AND status = \'pending_admin\'').run(propertyId);
     io.emit('market_updated');
   });
 
   // Admin ou dono cancela anúncio
   socket.on('cancel_listing', (propertyId) => {
-    db.prepare('UPDATE properties SET status = "canceled" WHERE id = ?').run(propertyId);
+    db.prepare('UPDATE properties SET status = \'canceled\' WHERE id = ?').run(propertyId);
     io.emit('market_updated');
   });
 
   // Compra entre jogadores: um jogador compra imóvel de outro
   socket.on('buy_property', ({ buyerId, propertyId }) => {
-    const prop = db.prepare('SELECT * FROM properties WHERE id = ? AND status = "active"').get(propertyId);
+    const prop = db.prepare('SELECT * FROM properties WHERE id = ? AND status = \'active\'').get(propertyId);
     if (!prop) return socket.emit('pix_error', 'Imóvel não disponível.');
 
     const buyer = db.prepare('SELECT balance, username FROM users WHERE id = ?').get(buyerId);
@@ -330,7 +309,7 @@ io.on('connection', (socket) => {
 
     db.prepare('UPDATE users SET balance = balance - ? WHERE id = ?').run(prop.askingPrice, buyerId);
     db.prepare('UPDATE users SET balance = balance + ? WHERE id = ?').run(prop.askingPrice, prop.sellerId);
-    db.prepare('UPDATE properties SET status = "sold" WHERE id = ?').run(propertyId);
+    db.prepare('UPDATE properties SET status = \'sold\' WHERE id = ?').run(propertyId);
     db.prepare('INSERT INTO transactions (senderId, receiverId, amount) VALUES (?, ?, ?)').run(buyerId, prop.sellerId, prop.askingPrice);
 
     const bRow = db.prepare('SELECT balance FROM users WHERE id = ?').get(buyerId);
@@ -363,7 +342,7 @@ io.on('connection', (socket) => {
     if (!prop) return;
     const banco = db.prepare("SELECT id FROM users WHERE username = 'Banco'").get();
     db.prepare('UPDATE users SET balance = balance + ? WHERE id = ?').run(prop.bankOffer, prop.sellerId);
-    db.prepare('UPDATE properties SET status = "sold" WHERE id = ?').run(propertyId);
+    db.prepare('UPDATE properties SET status = \'sold\' WHERE id = ?').run(propertyId);
     db.prepare('INSERT INTO transactions (senderId, receiverId, amount) VALUES (?, ?, ?)').run(banco.id, prop.sellerId, prop.bankOffer);
     const sRow = db.prepare('SELECT balance FROM users WHERE id = ?').get(prop.sellerId);
     io.emit('market_updated');
