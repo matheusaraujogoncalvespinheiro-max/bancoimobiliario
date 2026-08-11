@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && node -e \"const fs=require('fs'),path=require('path');const s=path.resolve('../backend/public');fs.rmSync(s,{recursive:true,force:true});fs.cpSync('dist',s,{recursive:true});\"",
     "lint": "oxlint",
     "preview": "vite preview"
   },

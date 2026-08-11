@@ -118,7 +118,9 @@ app.get('/api/market/mine/:userId', (req, res) => {
 });
 
 // Servir o site (frontend buildado) quando estiver pronto pra produção
-const distDir = path.join(__dirname, '..', 'frontend', 'dist');
+const distDir = fs.existsSync(path.join(__dirname, 'public', 'index.html'))
+  ? path.join(__dirname, 'public')
+  : path.join(__dirname, '..', 'frontend', 'dist');
 const indexFile = path.join(distDir, 'index.html');
 app.use(express.static(distDir));
 app.use((req, res, next) => {
