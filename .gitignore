@@ -4,6 +4,8 @@ node_modules/
 # Banco local (contém senhas em texto puro - não subir)
 backend/banco.sqlite
 backend/banco.sqlite-journal
+backend/banco.sqlite-wal
+backend/banco.sqlite-shm
 
 # Configuração/secrets
 frontend/.env
