@@ -267,11 +267,20 @@ io.on('connection', (socket) => {
       return;
     }
 
-    const receiver = db.prepare('SELECT username, isBankrupt FROM users WHERE id = ?').get(receiverId);
+    const receiver = db.prepare('SELECT username, role, isBankrupt FROM users WHERE id = ?').get(receiverId);
     if (!receiver) return socket.emit('pix_error', 'Destinatário não encontrado.');
     if (receiver.isBankrupt) {
       socket.emit('pix_error', `${receiver.username} faliu e está fora do jogo. Não é possível enviar dinheiro para ele.`);
       return;
+    }
+
+    // Regra saldo zerado: só pode pagar outros jogadores e impostos (Férias)
+    if (sender.role === 'player' && sender.balance <= 0) {
+      const canPay = receiver.role === 'player' || receiver.username === 'Férias';
+      if (!canPay) {
+        socket.emit('pix_error', 'Seu saldo está zerado. Você só pode pagar outros jogadores e impostos (Férias).');
+        return;
+      }
     }
 
     if (sender.role === 'player' && (sender.balance - amount) < -1500000) {
@@ -377,6 +386,9 @@ io.on('connection', (socket) => {
 
     const buyer = db.prepare('SELECT balance, username FROM users WHERE id = ?').get(buyerId);
     if (!buyer) return;
+    if (buyer.balance <= 0) {
+      return socket.emit('pix_error', 'Seu saldo está zerado. Você não pode comprar imóveis.');
+    }
     if (buyer.balance < prop.askingPrice) {
       return socket.emit('pix_error', 'Saldo insuficiente para comprar este imóvel.');
     }

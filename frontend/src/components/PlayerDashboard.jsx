@@ -147,6 +147,9 @@ export default function PlayerDashboard({ user, setUser, socket, onLogout }) {
   const handlePix = () => {
     if (!selectedReceiver || pixAmount <= 0) return;
     if (pixAmount % 1000 !== 0) return alert('Transferências apenas em múltiplos de 1.000!');
+    if (user.balance <= 0 && selectedReceiver.username === 'Banco') {
+      return alert('Seu saldo está zerado. Você só pode pagar outros jogadores e impostos (Férias).');
+    }
     socket.emit('pix', { senderId: uid, receiverId: selectedReceiver.id, amount: pixAmount });
     setConfirmModal(false);
     setAmountDisplay('');
@@ -176,6 +179,7 @@ export default function PlayerDashboard({ user, setUser, socket, onLogout }) {
   };
 
   const handleBuyProperty = (prop) => {
+    if (user.balance <= 0) return alert('Seu saldo está zerado. Você não pode comprar imóveis.');
     if (user.balance < prop.askingPrice) return alert('Saldo insuficiente!');
     socket.emit('buy_property', { buyerId: uid, propertyId: prop.id });
     setBuyModal(null);
@@ -321,7 +325,7 @@ export default function PlayerDashboard({ user, setUser, socket, onLogout }) {
                 }}
               >🏖️<br/>Imposto</div>
             )}
-            {bancoUser && (
+            {bancoUser && user.balance > 0 && (
               <div onClick={() => { setSelectedReceiver(bancoUser); setAmountDisplay(''); }}
                 style={{
                   width: '76px', height: '76px', borderRadius: '50%',
@@ -362,7 +366,12 @@ export default function PlayerDashboard({ user, setUser, socket, onLogout }) {
           <p style={{ color: 'var(--text-muted)', fontSize: '14px', marginBottom: '20px' }}>
             Para <strong>comprar uma casa</strong> no jogo, faça um <strong>Pix direto para o Banco</strong> com o valor da propriedade. O valor cai na conta do Banco e o comprovante fica salvo no seu Extrato (com data, horário e para quem foi).
           </p>
-          {bancoUser ? (
+          {user.balance <= 0 ? (
+            <p style={{ color: 'var(--danger)', fontSize: '14px', background: '#fff0f0', border: '1px solid #fecaca', borderRadius: '10px', padding: '14px' }}>
+              ⚠️ Seu saldo está zerado. Com saldo zerado você <strong>não pode comprar casas nem terrenos</strong> —
+              apenas pagar outros jogadores e impostos (Férias).
+            </p>
+          ) : bancoUser ? (
             <div>
               <input
                 className="input-field"
