@@ -14,6 +14,16 @@ function desformatarNumero(valor) {
   return Number(String(valor).replace(/\./g, '').replace(',', '.')) || 0;
 }
 
+// Cores/tom de cada cartão (usado para personalizar o site quando ativado)
+const CARD_THEMES = {
+  caveira:   { primary: '#0f172a', hover: '#1e293b', bg: '#0b1120', grad: 'linear-gradient(135deg, #0b1120, #1e293b)', shadow: '0 10px 25px rgba(15, 23, 42, 0.55)' },
+  patria:    { primary: '#047857', hover: '#065f46', bg: '#ecfdf5', grad: 'linear-gradient(135deg, #064e3b, #047857)', shadow: '0 10px 25px rgba(4, 120, 87, 0.5)' },
+  adventure: { primary: '#4f46e5', hover: '#4338ca', bg: '#eef2ff', grad: 'linear-gradient(135deg, #312e81, #6d28d9)', shadow: '0 10px 25px rgba(79, 70, 229, 0.45)' },
+  biquini:   { primary: '#db2777', hover: '#be185d', bg: '#fdf2f8', grad: 'linear-gradient(135deg, #831843, #db2777)', shadow: '0 10px 25px rgba(219, 39, 119, 0.45)' },
+  king:      { primary: '#b45309', hover: '#92400e', bg: '#fffbeb', grad: 'linear-gradient(135deg, #78350f, #d97706)', shadow: '0 10px 25px rgba(180, 83, 9, 0.45)' },
+  snopy:     { primary: '#0d9488', hover: '#0f766e', bg: '#f0fdfa', grad: 'linear-gradient(135deg, #134e4a, #0f766e)', shadow: '0 10px 25px rgba(13, 148, 136, 0.45)' },
+};
+
 export default function PlayerDashboard({ user, setUser, socket, onLogout }) {
   const [activeTab, setActiveTab] = useState('home');
   const [allUsers, setAllUsers] = useState([]); // todos (jogadores + sistema)
@@ -27,6 +37,7 @@ export default function PlayerDashboard({ user, setUser, socket, onLogout }) {
   const [loans, setLoans] = useState([]);
   const [specialCards, setSpecialCards] = useState([]);
   const [myCardRequests, setMyCardRequests] = useState([]);
+  const [activeCardId, setActiveCardId] = useState(() => Number(localStorage.getItem(`activeCard_${user.id}`)) || null);
 
   // Transferência
   const [selectedReceiver, setSelectedReceiver] = useState(null);
@@ -153,6 +164,29 @@ export default function PlayerDashboard({ user, setUser, socket, onLogout }) {
     };
   }, [socket]);
 
+  // Personaliza o site com o tom do cartão ativo (e limpa tudo ao desativar/sair)
+  useEffect(() => {
+    const root = document.documentElement;
+    const card = specialCards.find(c => Number(c.ownerId) === uid && Number(c.id) === Number(activeCardId));
+    const theme = card ? CARD_THEMES[card.effect] || CARD_THEMES.adventure : null;
+    if (theme) {
+      root.style.setProperty('--primary', theme.primary);
+      root.style.setProperty('--primary-hover', theme.hover);
+      root.style.setProperty('--bg-color', theme.bg);
+      localStorage.setItem(`activeCard_${uid}`, activeCardId);
+    } else {
+      root.style.removeProperty('--primary');
+      root.style.removeProperty('--primary-hover');
+      root.style.removeProperty('--bg-color');
+      localStorage.removeItem(`activeCard_${uid}`);
+    }
+    return () => {
+      root.style.removeProperty('--primary');
+      root.style.removeProperty('--primary-hover');
+      root.style.removeProperty('--bg-color');
+    };
+  }, [activeCardId, uid, specialCards]);
+
   if (user.isBankrupt) {
     return (
       <div className="login-wrapper">
@@ -277,6 +311,8 @@ export default function PlayerDashboard({ user, setUser, socket, onLogout }) {
   ];
 
   const ownedCards = specialCards.filter(c => Number(c.ownerId) === uid);
+  const activeCard = ownedCards.find(c => Number(c.id) === Number(activeCardId)) || null;
+  const activeTheme = activeCard ? CARD_THEMES[activeCard.effect] || CARD_THEMES.adventure : null;
   const playerReceiversForAdventure = allUsers.filter(u => u.role === 'player' && !u.isBankrupt && parseInt(u.id) !== uid);
   const jailCandidates = playerReceiversForAdventure.filter(u => !(Number(u.jailedRounds) > 0));
 
@@ -315,18 +351,40 @@ export default function PlayerDashboard({ user, setUser, socket, onLogout }) {
       )}
 
       {/* Cartão */}
-      <div className="credit-card" style={{ marginBottom: '24px', width: '100%', maxWidth: '100%' }}>
-        <div>
+      <div className="credit-card" style={{ marginBottom: '24px', width: '100%', maxWidth: '100%', background: activeCard ? activeTheme.grad : undefined, boxShadow: activeTheme ? activeTheme.shadow : undefined }}>
+        {activeCard && (
+          <img src={`/cards/${activeCard.image}`} alt={activeCard.name} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: 0.45, borderRadius: '16px' }} />
+        )}
+        <div style={{ position: 'relative', zIndex: 1 }}>
           <div className="card-label">Saldo Disponível</div>
-          <h2 className="card-balance" style={{ fontSize: '28px', color: user.balance < 0 ? '#fca5a5' : 'white' }}>
+          <h2 className="card-balance" style={{ fontSize: '28px', color: user.balance < 0 ? '#fecaca' : 'white' }}>
             M$ {user.balance.toLocaleString('pt-BR')}
           </h2>
         </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-          <div className="card-name">{user.username}</div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', position: 'relative', zIndex: 1 }}>
+          <div>
+            <div className="card-name">{user.username}</div>
+            {activeCard && (
+              <div style={{ fontSize: '12px', opacity: 0.9, fontWeight: '600', marginTop: '4px', textTransform: 'none', letterSpacing: '0' }}>
+                {activeCard.emoji} {activeCard.name}
+              </div>
+            )}
+          </div>
           {ownedCards.length > 0 ? (
-            <div style={{ display: 'flex', gap: '4px', alignItems: 'center', height: '42px' }}>
-              {ownedCards.map(c => <img key={c.id} src={`/cards/${c.image}`} alt={c.name} title={`${c.name}: ${c.description}`} style={{ height: '42px', width: '60px', objectFit: 'cover', borderRadius: '4px' }} />)}
+            <div style={{ display: 'flex', gap: '4px', alignItems: 'center', height: '46px' }}>
+              {ownedCards.map(c => {
+                const on = Number(c.id) === Number(activeCardId);
+                return (
+                  <img
+                    key={c.id}
+                    src={`/cards/${c.image}`}
+                    alt={c.name}
+                    title={`${c.name} (clique para ${on ? 'desativar' : 'ativar'} o tema)`}
+                    onClick={() => setActiveCardId(on ? null : c.id)}
+                    style={{ height: '42px', width: '60px', objectFit: 'cover', borderRadius: '6px', cursor: 'pointer', border: on ? '3px solid #ffffff' : '2px solid rgba(255,255,255,0.35)', transform: on ? 'scale(1.1)' : 'none', transition: '0.2s', boxShadow: on ? '0 0 0 3px rgba(255,255,255,0.25)' : 'none' }}
+                  />
+                );
+              })}
             </div>
           ) : (
             <Landmark size={28} opacity={0.5} />
@@ -481,7 +539,7 @@ export default function PlayerDashboard({ user, setUser, socket, onLogout }) {
         <div className="glass">
           <h3><CreditCard size={20} style={{ verticalAlign: 'middle' }}/> Cartões Especiais</h3>
           <p style={{ color: 'var(--text-muted)', fontSize: '14px', marginBottom: '20px' }}>
-            Compre um cartão e ganhe uma <strong>habilidade especial</strong>. Cada cartão tem apenas <strong>1 unidade</strong>: quem comprar primeiro fica com ele e <strong>não há revenda</strong>.
+            Compre um cartão e ganhe uma <strong>habilidade especial</strong>. Cada cartão tem apenas <strong>1 unidade</strong>: quem comprar primeiro fica com ele e <strong>não há revenda</strong>. Depois de comprar, use <strong>🎨 Ativar tema</strong> (ou toque na miniatura no cartão do topo) para deixar o site no tom do seu cartão.
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
             {specialCards.length === 0 && <p style={{ color: 'var(--text-muted)' }}>Nenhum cartão disponível no momento.</p>}
@@ -492,6 +550,7 @@ export default function PlayerDashboard({ user, setUser, socket, onLogout }) {
               const usesLeft = (c.maxUses || 0) - (c.usesUsed || 0);
               const isPending = myCardRequests.some(r => Number(r.cardId) === c.id);
               const usable = ownedByMe && c.maxUses > 0 && usesLeft > 0 && !isPending;
+              const isActiveCard = Number(c.id) === Number(activeCardId);
               return (
                 <div key={c.id} style={{ padding: '14px', border: ownedByMe ? '2px solid #86efac' : '1px solid #e2e8f0', borderRadius: '12px', background: ownedByMe ? '#f0fdf4' : 'white' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
@@ -516,6 +575,15 @@ export default function PlayerDashboard({ user, setUser, socket, onLogout }) {
                           : 'Disponível para compra'}
                     </div>
                     <div style={{ display: 'flex', gap: '8px' }}>
+                      {ownedByMe && (
+                        <button
+                          className="btn-secondary"
+                          style={{ width: 'auto', background: isActiveCard ? '#1e293b' : '#ede9fe', color: isActiveCard ? 'white' : '#4c1d95' }}
+                          onClick={() => setActiveCardId(isActiveCard ? null : c.id)}
+                        >
+                          {isActiveCard ? '✓ Tema ativo' : '🎨 Ativar tema'}
+                        </button>
+                      )}
                       {!ownedByMe && !ownedByOther && (
                         <button
                           className="btn-primary"
