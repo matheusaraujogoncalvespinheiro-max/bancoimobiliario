@@ -446,9 +446,13 @@ io.on('connection', (socket) => {
 
     let effectiveAmount = amount;
     // BIQUINI EXPRESS: +10% no que o jogador recebe do Banco do Governo
+    // (bônus arredondado PARA CIMA até o múltiplo de 1.000, pois só aceita Pix múltiplos de 1.000)
     if (sender.role === 'system' && sender.username === 'Banco' && receiver.role === 'player') {
       const biquini = db.prepare("SELECT id FROM special_cards WHERE effect = 'biquini' AND ownerId = ?").get(receiverId);
-      if (biquini) effectiveAmount = amount + Math.round(amount * 0.1);
+      if (biquini) {
+        const bonus = Math.ceil((amount * 0.1) / 1000) * 1000;
+        effectiveAmount = amount + bonus;
+      }
     }
 
     // KING JAMES: +15% em TODO pix que o dono do cartão receber (o extra é pago pelo Banco)
@@ -456,7 +460,7 @@ io.on('connection', (socket) => {
     if (receiver.role === 'player') {
       const king = db.prepare("SELECT id FROM special_cards WHERE effect = 'king' AND ownerId = ?").get(receiverId);
       if (king) {
-        kingBonus = Math.round(effectiveAmount * 0.15);
+        kingBonus = Math.ceil((effectiveAmount * 0.15) / 1000) * 1000;
         if (banco) db.prepare('UPDATE users SET balance = balance - ? WHERE id = ?').run(kingBonus, banco.id);
       }
     }
