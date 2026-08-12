@@ -136,7 +136,7 @@ if (!db.prepare('SELECT COUNT(*) as c FROM special_cards').get().c) {
     ['PATRIA EXPRESS', '🏛️', 700000, 'Isenção de impostos por até 3 vezes no jogo: isenta o seu último pagamento ao Imposto (Férias).', 'patria', 3, 'patria-express.png'],
     ['ADVENTURE CARD', '🚀', 1000000, 'Pague alguém sem descontar do seu saldo: o Banco paga a pessoa escolhida por você. Uso único no jogo.', 'adventure', 1, 'adventure-card.png'],
     ['BIQUINI EXPRESS', '🩱', 1250000, 'Passivo: você recebe +10% em todo dinheiro que o Banco do Governo pagar para você.', 'biquini', 0, 'biquini-express.png'],
-    ['KING JAMES', '👑', 1500000, 'Passivo: o jogador que cair na sua casa paga 10% a mais para você.', 'king', 0, 'king-james.png'],
+    ['KING JAMES', '👑', 1500000, 'Passivo: você recebe +15% em TODOS os Pix que chegar para você (o Banco paga o extra).', 'king', 0, 'king-james.png'],
     ['SNOPY CARD', '🐶', 2500000, 'Sai do vermelho e fica limpo: zera o seu saldo uma vez no jogo (o Banco absorve a dívida).', 'snopy', 1, 'snopy.png'],
   ].forEach(c => insert.run(...c));
 }
@@ -153,5 +153,8 @@ if (!db.prepare('SELECT COUNT(*) as c FROM special_cards').get().c) {
 
 // CAVEIRA CARD agora custa 1.5M e prende alguém por 2 rodadas (aplica em bases já existentes)
 db.prepare("UPDATE special_cards SET price = 1500000, description = 'Manda um jogador para a cadeia por 2 rodadas: enquanto preso, ele NÃO recebe pagamentos.' WHERE effect = 'caveira'").run();
+
+// KING JAMES agora dá +15% em todo Pix recebido (aplica em bases já existentes)
+db.prepare("UPDATE special_cards SET description = 'Passivo: você recebe +15% em TODOS os Pix que chegar para você (o Banco paga o extra).' WHERE effect = 'king'").run();
 
 module.exports = db;

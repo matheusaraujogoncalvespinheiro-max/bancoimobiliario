@@ -442,6 +442,8 @@ io.on('connection', (socket) => {
       return;
     }
 
+    const banco = db.prepare("SELECT id FROM users WHERE username = 'Banco'").get();
+
     let effectiveAmount = amount;
     // BIQUINI EXPRESS: +10% no que o jogador recebe do Banco do Governo
     if (sender.role === 'system' && sender.username === 'Banco' && receiver.role === 'player') {
@@ -449,9 +451,20 @@ io.on('connection', (socket) => {
       if (biquini) effectiveAmount = amount + Math.round(amount * 0.1);
     }
 
+    // KING JAMES: +15% em TODO pix que o dono do cartão receber (o extra é pago pelo Banco)
+    let kingBonus = 0;
+    if (receiver.role === 'player') {
+      const king = db.prepare("SELECT id FROM special_cards WHERE effect = 'king' AND ownerId = ?").get(receiverId);
+      if (king) {
+        kingBonus = Math.round(effectiveAmount * 0.15);
+        if (banco) db.prepare('UPDATE users SET balance = balance - ? WHERE id = ?').run(kingBonus, banco.id);
+      }
+    }
+    const paidToReceiver = effectiveAmount + kingBonus;
+
     db.prepare('UPDATE users SET balance = balance - ? WHERE id = ?').run(effectiveAmount, senderId);
-    db.prepare('UPDATE users SET balance = balance + ? WHERE id = ?').run(effectiveAmount, receiverId);
-    db.prepare('INSERT INTO transactions (senderId, receiverId, amount) VALUES (?, ?, ?)').run(senderId, receiverId, effectiveAmount);
+    db.prepare('UPDATE users SET balance = balance + ? WHERE id = ?').run(paidToReceiver, receiverId);
+    db.prepare('INSERT INTO transactions (senderId, receiverId, amount) VALUES (?, ?, ?)').run(senderId, receiverId, paidToReceiver);
 
     // Buscar novos saldos e usernames para resposta
     const senderRow = db.prepare('SELECT balance, username FROM users WHERE id = ?').get(senderId);
@@ -474,7 +487,7 @@ io.on('connection', (socket) => {
     // Notifica destinatário com novo saldo
     io.to(`user_${receiverId}`).emit('pix_received', {
       from: senderRow.username,
-      amount: effectiveAmount,
+      amount: paidToReceiver,
       newBalance: receiverRow?.balance
     });
   });
