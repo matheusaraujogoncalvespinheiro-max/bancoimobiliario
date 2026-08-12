@@ -102,6 +102,7 @@ safeAlter("ALTER TABLE properties ADD COLUMN buyerId INTEGER");
 safeAlter("ALTER TABLE properties ADD COLUMN soldPrice REAL");
 safeAlter("ALTER TABLE properties ADD COLUMN soldAt DATETIME");
 safeAlter("ALTER TABLE users ADD COLUMN isBankrupt BOOLEAN DEFAULT 0");
+safeAlter("ALTER TABLE users ADD COLUMN jailedRounds INTEGER DEFAULT 0");
 safeAlter("ALTER TABLE transactions ADD COLUMN status TEXT DEFAULT 'completed'");
 safeAlter("ALTER TABLE game_state ADD COLUMN feriasTax REAL DEFAULT 50000");
 
@@ -131,7 +132,7 @@ if (!db.prepare('SELECT COUNT(*) as c FROM special_cards').get().c) {
     INSERT INTO special_cards (name, emoji, price, description, effect, maxUses, image) VALUES (?, ?, ?, ?, ?, ?, ?)
   `);
   [
-    ['CAVEIRA CARD', '💀', 500000, 'Faz você sair da cadeia uma vez na partida.', 'caveira', 1, 'caveira-card.png'],
+    ['CAVEIRA CARD', '💀', 1500000, 'Manda um jogador para a cadeia por 2 rodadas: enquanto preso, ele NÃO recebe pagamentos.', 'caveira', 1, 'caveira-card.png'],
     ['PATRIA EXPRESS', '🏛️', 700000, 'Isenção de impostos por até 3 vezes no jogo: isenta o seu último pagamento ao Imposto (Férias).', 'patria', 3, 'patria-express.png'],
     ['ADVENTURE CARD', '🚀', 1000000, 'Pague alguém sem descontar do seu saldo: o Banco paga a pessoa escolhida por você. Uso único no jogo.', 'adventure', 1, 'adventure-card.png'],
     ['BIQUINI EXPRESS', '🩱', 1250000, 'Passivo: você recebe +10% em todo dinheiro que o Banco do Governo pagar para você.', 'biquini', 0, 'biquini-express.png'],
@@ -149,5 +150,8 @@ if (!db.prepare('SELECT COUNT(*) as c FROM special_cards').get().c) {
 ].forEach(([img, eff]) => {
   db.prepare('UPDATE special_cards SET image = ? WHERE effect = ?').run(img, eff);
 });
+
+// CAVEIRA CARD agora custa 1.5M e prende alguém por 2 rodadas (aplica em bases já existentes)
+db.prepare("UPDATE special_cards SET price = 1500000, description = 'Manda um jogador para a cadeia por 2 rodadas: enquanto preso, ele NÃO recebe pagamentos.' WHERE effect = 'caveira'").run();
 
 module.exports = db;

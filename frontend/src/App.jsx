@@ -106,6 +106,14 @@ function App() {
       pushNotif('success', '🃏 Uso autorizado!', `O Admin autorizou o uso do ${data.cardName}.`);
     });
 
+    socket.on('jail_sent', (data) => {
+      pushNotif('error', '⛓️ CADEIA!', `${data.by} te prendeu por ${data.rounds} rodadas. Você não pode receber pagamentos enquanto estiver preso.`);
+    });
+
+    socket.on('jail_released', () => {
+      pushNotif('success', '🔓 Você saiu da cadeia!', 'Agora você pode receber pagamentos novamente.');
+    });
+
     socket.on('game_reset', () => {
       setUser(prev => {
         if (prev && prev.role !== 'admin') return null;
@@ -127,6 +135,8 @@ function App() {
       socket.off('pix_error');
       socket.off('bankrupt');
       socket.off('card_use_approved');
+      socket.off('jail_sent');
+      socket.off('jail_released');
       socket.off('game_reset');
     };
   }, []);

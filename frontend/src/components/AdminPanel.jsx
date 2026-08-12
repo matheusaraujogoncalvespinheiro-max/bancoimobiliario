@@ -299,7 +299,7 @@ export default function AdminPanel({ socket, onLogout }) {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {users.map(u => (
                 <div key={u.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                  <span style={{ fontWeight: '600', textDecoration: u.isBankrupt ? 'line-through' : 'none' }}>{u.username}</span>
+                  <span style={{ fontWeight: '600', textDecoration: u.isBankrupt ? 'line-through' : 'none' }}>{u.username} {Number(u.jailedRounds) > 0 ? '⛓️' : ''}</span>
                   <span style={{ color: u.balance < 0 ? 'var(--danger)' : 'var(--success)', fontWeight: 'bold' }}>M$ {u.balance.toLocaleString('pt-BR')}</span>
                 </div>
               ))}
@@ -469,7 +469,9 @@ export default function AdminPanel({ socket, onLogout }) {
                           <div style={{ fontWeight: 'bold' }}>{r.username} quer usar <span style={{ color: 'var(--primary)' }}>{r.cardName}</span></div>
                           {r.receiverName && (
                             <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
-                              Pagando para: <strong>{r.receiverName}</strong> · M$ {Number(r.amount).toLocaleString('pt-BR')}
+                              {r.amount
+                                ? <>Pagando para: <strong>{r.receiverName}</strong> · M$ {Number(r.amount).toLocaleString('pt-BR')}</>
+                                : <>Mandando <strong>{r.receiverName}</strong> para a cadeia ⛓️</>}
                             </div>
                           )}
                           <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>🕐 {new Date(r.createdAt).toLocaleString('pt-BR')}</div>

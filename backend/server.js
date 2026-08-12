@@ -29,6 +29,11 @@ const checkBankruptcy = (userId, balance) => {
   return false;
 };
 
+const isJailed = (userId) => {
+  const u = db.prepare('SELECT jailedRounds FROM users WHERE id = ?').get(userId);
+  return u ? Number(u.jailedRounds) > 0 : false;
+};
+
 // Aplica o efeito de um cartão especial (retorna mensagem de erro ou null se ok)
 const applyCardEffect = (user, card, receiverId, amount) => {
   const banco = db.prepare("SELECT id FROM users WHERE username = 'Banco'").get();
@@ -61,6 +66,7 @@ const applyCardEffect = (user, card, receiverId, amount) => {
     const receiver = db.prepare('SELECT id, role, isBankrupt, username FROM users WHERE id = ?').get(receiverId);
     if (!receiver || receiver.role !== 'player' || Number(receiver.id) === Number(user.id)) return 'Destinatário inválido.';
     if (receiver.isBankrupt) return 'Esse jogador já faliu e está fora do jogo.';
+    if (isJailed(receiver.id)) return `O jogador ${receiver.username} está preso na cadeia e não pode receber pagamentos.`;
     db.prepare('UPDATE users SET balance = balance - ? WHERE id = ?').run(amount, banco.id);
     db.prepare('UPDATE users SET balance = balance + ? WHERE id = ?').run(amount, receiver.id);
     db.prepare('INSERT INTO transactions (senderId, receiverId, amount) VALUES (?, ?, ?)').run(banco.id, receiver.id, amount);
@@ -70,6 +76,13 @@ const applyCardEffect = (user, card, receiverId, amount) => {
   }
 
   if (card.effect === 'caveira') {
+    if (!receiverId) return 'Escolha quem vai para a cadeia.';
+    const receiver = db.prepare('SELECT id, role, isBankrupt, jailedRounds FROM users WHERE id = ?').get(receiverId);
+    if (!receiver || receiver.role !== 'player' || Number(receiver.id) === Number(user.id)) return 'Destinatário inválido.';
+    if (receiver.isBankrupt) return 'Esse jogador já faliu e está fora do jogo.';
+    if (Number(receiver.jailedRounds) > 0) return 'Esse jogador já está preso na cadeia.';
+    db.prepare('UPDATE users SET jailedRounds = 2 WHERE id = ?').run(receiver.id);
+    io.to(`user_${receiver.id}`).emit('jail_sent', { rounds: 2, by: user.username });
     return null;
   }
 
@@ -88,7 +101,7 @@ app.post('/api/login', (req, res) => {
 
 app.get('/api/game_state', (req, res) => {
   const state = db.prepare('SELECT * FROM game_state WHERE id = 1').get();
-  const users = db.prepare("SELECT id, username, role, balance, isBankrupt FROM users WHERE role IN ('player', 'system')").all();
+  const users = db.prepare("SELECT id, username, role, balance, isBankrupt, jailedRounds FROM users WHERE role IN ('player', 'system')").all();
   res.json({ state: state || { round: 0, isStarted: 0 }, users: users || [] });
 });
 
@@ -276,6 +289,7 @@ io.on('connection', (socket) => {
     db.prepare('DELETE FROM transactions').run();
     db.prepare('DELETE FROM card_use_requests').run();
     db.prepare('UPDATE special_cards SET ownerId = NULL, usesUsed = 0').run();
+    db.prepare('UPDATE users SET jailedRounds = 0').run();
     db.prepare("DELETE FROM users WHERE role = 'player'").run();
     db.prepare("UPDATE users SET balance = 999999999 WHERE username = 'Banco'").run();
     db.prepare("UPDATE users SET balance = 0 WHERE username = 'Férias'").run();
@@ -290,6 +304,11 @@ io.on('connection', (socket) => {
   socket.on('next_round', () => {
     db.prepare('UPDATE game_state SET round = round + 1 WHERE id = 1').run();
     db.prepare('UPDATE loans SET roundsLeft = roundsLeft - 1').run();
+
+    // Cadeia: quem estava com 1 rodada restam liberta agora
+    const released = db.prepare("SELECT id FROM users WHERE jailedRounds = 1").all();
+    released.forEach(p => io.to(`user_${p.id}`).emit('jail_released'));
+    db.prepare("UPDATE users SET jailedRounds = MAX(COALESCE(jailedRounds,0) - 1, 0) WHERE role = 'player'").run();
 
     // Cobra empréstimos vencidos
     const loans = db.prepare('SELECT * FROM loans WHERE roundsLeft <= 0').all();
@@ -352,6 +371,10 @@ io.on('connection', (socket) => {
     if (!receiver) return socket.emit('pix_error', 'Destinatário não encontrado.');
     if (receiver.isBankrupt) {
       socket.emit('pix_error', `${receiver.username} faliu e está fora do jogo. Não é possível enviar dinheiro para ele.`);
+      return;
+    }
+    if (receiver.role === 'player' && isJailed(receiverId)) {
+      socket.emit('pix_error', `${receiver.username} está preso na cadeia e não pode receber pagamentos.`);
       return;
     }
 
@@ -492,6 +515,15 @@ io.on('connection', (socket) => {
     }
     if (card.effect === 'snopy' && user.balance >= 0) {
       return socket.emit('pix_error', 'Seu saldo já está positivo. Use o cartão quando estiver no vermelho.');
+    }
+    if (card.effect === 'caveira') {
+      if (!receiverId) return socket.emit('pix_error', 'Escolha quem vai para a cadeia.');
+      const receiver = db.prepare('SELECT id, role, isBankrupt, jailedRounds FROM users WHERE id = ?').get(receiverId);
+      if (!receiver || receiver.role !== 'player' || Number(receiver.id) === Number(user.id)) {
+        return socket.emit('pix_error', 'Destinatário inválido. Escolha outro jogador.');
+      }
+      if (receiver.isBankrupt) return socket.emit('pix_error', 'Esse jogador faliu e está fora do jogo.');
+      if (Number(receiver.jailedRounds) > 0) return socket.emit('pix_error', 'Esse jogador já está preso na cadeia.');
     }
 
     db.prepare('INSERT INTO card_use_requests (cardId, userId, receiverId, amount) VALUES (?, ?, ?, ?)')

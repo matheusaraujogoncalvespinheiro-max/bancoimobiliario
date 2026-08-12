@@ -41,6 +41,10 @@ export default function PlayerDashboard({ user, setUser, socket, onLogout }) {
   const [adventureReceiverId, setAdventureReceiverId] = useState('');
   const [adventureAmountDisplay, setAdventureAmountDisplay] = useState('');
 
+  // Cartão CAVEIRA (mandar alguém para a cadeia)
+  const [jailModal, setJailModal] = useState(null);
+  const [jailReceiverId, setJailReceiverId] = useState('');
+
   // Comprovante
   const [receiptTx, setReceiptTx] = useState(null);
 
@@ -65,7 +69,7 @@ export default function PlayerDashboard({ user, setUser, socket, onLogout }) {
         if (ferias) setFeriasBalance(ferias.balance);
         // Atualizar saldo do próprio user
         const me = data.users.find(u => parseInt(u.id) === uid);
-        if (me) setUser(prev => ({ ...prev, balance: me.balance }));
+        if (me) setUser(prev => ({ ...prev, balance: me.balance, jailedRounds: me.jailedRounds }));
         syncGameSnapshot(data.state, data.users);
       }
     } catch(e) { console.error(e); }
@@ -231,8 +235,19 @@ export default function PlayerDashboard({ user, setUser, socket, onLogout }) {
       setAdventureModal(c);
       return;
     }
+    if (c.effect === 'caveira') {
+      setJailReceiverId('');
+      setJailModal(c);
+      return;
+    }
     if (!confirm(`Usar o cartão ${c.name} agora? O uso precisa da autorização do Admin.`)) return;
     socket.emit('request_card_use', { userId: uid, cardId: c.id });
+  };
+
+  const handleConfirmJail = () => {
+    if (!jailReceiverId) return alert('Escolha quem vai para a cadeia.');
+    socket.emit('request_card_use', { userId: uid, cardId: jailModal.id, receiverId: Number(jailReceiverId) });
+    setJailModal(null);
   };
 
   const handleConfirmAdventure = () => {
@@ -263,6 +278,7 @@ export default function PlayerDashboard({ user, setUser, socket, onLogout }) {
 
   const ownedCards = specialCards.filter(c => Number(c.ownerId) === uid);
   const playerReceiversForAdventure = allUsers.filter(u => u.role === 'player' && !u.isBankrupt && parseInt(u.id) !== uid);
+  const jailCandidates = playerReceiversForAdventure.filter(u => !(Number(u.jailedRounds) > 0));
 
   return (
     <div className="container animate-slide-up" style={{ paddingBottom: '80px' }}>
@@ -291,6 +307,12 @@ export default function PlayerDashboard({ user, setUser, socket, onLogout }) {
           );
         })}
       </div>
+
+      {user.jailedRounds > 0 && (
+        <div style={{ background: '#1e293b', color: '#fecaca', border: '1px solid #475569', borderRadius: '12px', padding: '10px 14px', marginBottom: '20px', fontSize: '14px', fontWeight: 'bold', textAlign: 'center' }}>
+          ⛓️ VOCÊ ESTÁ PRESO NA CADEIA · não pode receber pagamentos ({user.jailedRounds} rodada(s) restante(s))
+        </div>
+      )}
 
       {/* Cartão */}
       <div className="credit-card" style={{ marginBottom: '24px', width: '100%', maxWidth: '100%' }}>
@@ -374,7 +396,7 @@ export default function PlayerDashboard({ user, setUser, socket, onLogout }) {
                   flexDirection: 'column', cursor: 'pointer', textAlign: 'center',
                   transition: '0.2s', fontSize: '11px', fontWeight: 'bold', padding: '4px'
                 }}
-              >👤<br/>{u.username}</div>
+              >{Number(u.jailedRounds) > 0 ? '⛓️' : '👤'}<br/>{u.username}</div>
             ))}
             {feriasUser && (
               <div onClick={() => { setSelectedReceiver(feriasUser); setAmountDisplay(''); }}
@@ -546,6 +568,26 @@ export default function PlayerDashboard({ user, setUser, socket, onLogout }) {
             <div style={{ display: 'flex', gap: '12px', marginTop: '16px' }}>
               <button className="btn-secondary" style={{ flex: 1 }} onClick={() => setAdventureModal(null)}>Cancelar</button>
               <button className="btn-primary" style={{ flex: 1 }} onClick={handleConfirmAdventure}>Pagar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal CAVEIRA CARD */}
+      {jailModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
+          <div className="glass animate-slide-up" style={{ width: '90%', maxWidth: '380px', textAlign: 'center' }}>
+            <h3>💀 CAVEIRA CARD</h3>
+            <p style={{ color: 'var(--text-muted)', fontSize: '14px', margin: '10px 0' }}>
+              Quem vai para a <strong>cadeia</strong>? <br/>⚠️ Por 2 rodadas ele <strong>não recebe pagamentos</strong>.
+            </p>
+            <select className="input-field" value={jailReceiverId} onChange={e => setJailReceiverId(e.target.value)} style={{ textAlign: 'left' }}>
+              <option value="" disabled>Quem vai para a cadeia?</option>
+              {jailCandidates.map(u => <option key={u.id} value={u.id}>{u.username}</option>)}
+            </select>
+            <div style={{ display: 'flex', gap: '12px', marginTop: '16px' }}>
+              <button className="btn-secondary" style={{ flex: 1 }} onClick={() => setJailModal(null)}>Cancelar</button>
+              <button className="btn-primary" style={{ flex: 1 }} onClick={handleConfirmJail}>Prender</button>
             </div>
           </div>
         </div>
