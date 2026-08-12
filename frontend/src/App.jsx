@@ -114,6 +114,12 @@ function App() {
       pushNotif('success', '🔓 Você saiu da cadeia!', 'Agora você pode receber pagamentos novamente.');
     });
 
+    socket.on('account_removed', (data) => {
+      socket.emit('leave');
+      setUser(null);
+      pushNotif('error', '🚫 Conta Removida', `O admin removeu sua conta${data.username ? ` (${data.username})` : ''}.`);
+    });
+
     socket.on('game_reset', () => {
       setUser(prev => {
         if (prev && prev.role !== 'admin') return null;
@@ -137,6 +143,7 @@ function App() {
       socket.off('card_use_approved');
       socket.off('jail_sent');
       socket.off('jail_released');
+      socket.off('account_removed');
       socket.off('game_reset');
     };
   }, []);

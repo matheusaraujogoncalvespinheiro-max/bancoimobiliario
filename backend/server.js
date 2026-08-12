@@ -42,12 +42,13 @@ const applyCardEffect = (user, card, receiverId, amount) => {
   if (card.effect === 'patria') {
     const tx = db.prepare('SELECT * FROM transactions WHERE senderId = ? AND receiverId = ? AND status = \'completed\' ORDER BY id DESC LIMIT 1')
       .get(user.id, ferias.id);
-    if (!tx) return 'A pessoa não tem pagamentos de imposto (Férias) recentes para isentar.';
-    db.prepare('UPDATE users SET balance = balance + ? WHERE id = ?').run(tx.amount, user.id);
-    db.prepare('UPDATE users SET balance = balance - ? WHERE id = ?').run(tx.amount, ferias.id);
-    db.prepare('UPDATE transactions SET status = \'refunded\' WHERE id = ?').run(tx.id);
-    const row = db.prepare('SELECT balance FROM users WHERE id = ?').get(user.id);
-    io.to(`user_${user.id}`).emit('pix_received', { from: 'PATRIA EXPRESS (isenção de imposto)', amount: tx.amount, newBalance: row?.balance });
+    if (tx) {
+      db.prepare('UPDATE users SET balance = balance + ? WHERE id = ?').run(tx.amount, user.id);
+      db.prepare('UPDATE users SET balance = balance - ? WHERE id = ?').run(tx.amount, ferias.id);
+      db.prepare('UPDATE transactions SET status = \'refunded\' WHERE id = ?').run(tx.id);
+      const row = db.prepare('SELECT balance FROM users WHERE id = ?').get(user.id);
+      io.to(`user_${user.id}`).emit('pix_received', { from: 'PATRIA EXPRESS (isenção de imposto)', amount: tx.amount, newBalance: row?.balance });
+    }
     return null;
   }
 
@@ -300,6 +301,55 @@ io.on('connection', (socket) => {
     io.emit('game_updated');
   });
 
+  // Admin remover um jogador (conta + tudo ligado a ele)
+  socket.on('remove_player', (userId) => {
+    const user = db.prepare("SELECT * FROM users WHERE id = ? AND role = 'player'").get(userId);
+    if (!user) return socket.emit('pix_error', 'Jogador não encontrado.');
+
+    // Cartões do jogador voltam ao mercado
+    db.prepare('UPDATE special_cards SET ownerId = NULL, usesUsed = 0 WHERE ownerId = ?').run(userId);
+    // Anúncios não vendidos do jogador são excluídos (junto com os lances deles)
+    const listings = db.prepare("SELECT id FROM properties WHERE sellerId = ? AND status != 'sold'").all(userId);
+    listings.forEach(p => db.prepare('DELETE FROM property_bids WHERE propertyId = ?').run(p.id));
+    db.prepare("DELETE FROM properties WHERE sellerId = ? AND status != 'sold'").run(userId);
+    // Lances do jogador nos anúncios dos outros
+    db.prepare('DELETE FROM property_bids WHERE bidderId = ?').run(userId);
+    // Empréstimos e pedidos de uso de cartão
+    db.prepare('DELETE FROM loans WHERE userId = ?').run(userId);
+    db.prepare('DELETE FROM card_use_requests WHERE userId = ? OR receiverId = ?').run(userId, userId);
+
+    // Expulsa da partida se estiver online
+    let wasOnline = false;
+    for (const s of io.sockets.sockets.values()) {
+      if (s.data.userId === String(userId)) {
+        wasOnline = true;
+        s.emit('account_removed', { username: user.username });
+        s.leave(`user_${userId}`);
+        onlineUsers.delete(s.id);
+        delete s.data.userId;
+      }
+    }
+    if (wasOnline) broadcastOnlineUsers();
+
+    // Remove a conta
+    db.prepare('DELETE FROM users WHERE id = ?').run(userId);
+
+    io.emit('game_updated');
+    io.emit('market_updated');
+    io.emit('cards_updated');
+    io.emit('card_requests_updated');
+  });
+
+  // Admin soltar um preso (encerrar a pena antes do tempo)
+  socket.on('release_jail', (userId) => {
+    const user = db.prepare("SELECT username, jailedRounds FROM users WHERE id = ? AND role = 'player'").get(userId);
+    if (!user) return socket.emit('pix_error', 'Jogador não encontrado.');
+    if (Number(user.jailedRounds) <= 0) return socket.emit('pix_error', `${user.username} não está preso.`);
+    db.prepare('UPDATE users SET jailedRounds = 0 WHERE id = ?').run(userId);
+    io.to(`user_${userId}`).emit('jail_released');
+    io.emit('game_updated');
+  });
+
   // Admin Avançar Rodada
   socket.on('next_round', () => {
     db.prepare('UPDATE game_state SET round = round + 1 WHERE id = 1').run();
@@ -506,12 +556,6 @@ io.on('connection', (socket) => {
         return socket.emit('pix_error', 'Destinatário inválido. Escolha outro jogador.');
       }
       if (receiver.isBankrupt) return socket.emit('pix_error', 'Esse jogador faliu e está fora do jogo.');
-    }
-    if (card.effect === 'patria') {
-      const ferias = db.prepare("SELECT id FROM users WHERE username = 'Férias'").get();
-      const tx = db.prepare('SELECT * FROM transactions WHERE senderId = ? AND receiverId = ? AND status = \'completed\' ORDER BY id DESC LIMIT 1')
-        .get(user.id, ferias.id);
-      if (!tx) return socket.emit('pix_error', 'Você não tem pagamentos de imposto (Férias) recentes para isentar.');
     }
     if (card.effect === 'snopy' && user.balance >= 0) {
       return socket.emit('pix_error', 'Seu saldo já está positivo. Use o cartão quando estiver no vermelho.');

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { LogOut, PlusCircle, Gift, Landmark, Clock, RefreshCcw, ScrollText, PiggyBank, HandCoins, CreditCard, Check, X } from 'lucide-react';
+import { LogOut, PlusCircle, Gift, Landmark, Clock, RefreshCcw, ScrollText, PiggyBank, HandCoins, CreditCard, Check, X, Trash2 } from 'lucide-react';
 import { syncGameSnapshot, syncTransaction, syncMarket, syncLoans } from '../services/firebase';
 import { API_URL } from '../config';
 
@@ -208,6 +208,17 @@ export default function AdminPanel({ socket, onLogout }) {
     showMessage('Jogo zerado! Novos jogadores podem ser criados.');
   };
 
+  const handleRemovePlayer = (u) => {
+    if (!confirm(`Remover o jogador "${u.username}"?\n\nEle perderá saldo, cartões, imóveis e empréstimos. Essa ação não pode ser desfeita.`)) return;
+    socket.emit('remove_player', u.id);
+    showMessage(`Jogador ${u.username} removido!`);
+  };
+
+  const handleReleaseJail = (u) => {
+    socket.emit('release_jail', u.id);
+    showMessage(`${u.username} foi solto da cadeia!`);
+  };
+
   return (
     <div className="container animate-slide-up">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', gap: '12px', flexWrap: 'wrap' }}>
@@ -298,9 +309,25 @@ export default function AdminPanel({ socket, onLogout }) {
             <h3>Jogadores Atuais</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {users.map(u => (
-                <div key={u.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                  <span style={{ fontWeight: '600', textDecoration: u.isBankrupt ? 'line-through' : 'none' }}>{u.username} {Number(u.jailedRounds) > 0 ? '⛓️' : ''}</span>
-                  <span style={{ color: u.balance < 0 ? 'var(--danger)' : 'var(--success)', fontWeight: 'bold' }}>M$ {u.balance.toLocaleString('pt-BR')}</span>
+                <div key={u.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', padding: '12px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+                    <span style={{ fontWeight: '600', textDecoration: u.isBankrupt ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.username} {Number(u.jailedRounds) > 0 ? '⛓️' : ''}</span>
+                    {Number(u.jailedRounds) > 0 && (
+                      <button
+                        className="btn-secondary"
+                        style={{ padding: '4px 8px', color: '#166534', background: '#dcfce7', width: 'auto', fontSize: '12px' }}
+                        onClick={() => handleReleaseJail(u)}
+                        title={`Soltar ${u.username} da cadeia`}
+                      >🔓 Soltar</button>
+                    )}
+                    <button
+                      className="btn-secondary"
+                      style={{ padding: '4px 8px', color: 'var(--danger)', background: '#fee2e2', width: 'auto', fontSize: '12px' }}
+                      onClick={() => handleRemovePlayer(u)}
+                      title={`Remover ${u.username}`}
+                    ><Trash2 size={14} style={{ verticalAlign: 'middle' }}/> Remover</button>
+                  </div>
+                  <span style={{ color: u.balance < 0 ? 'var(--danger)' : 'var(--success)', fontWeight: 'bold', flexShrink: 0 }}>M$ {u.balance.toLocaleString('pt-BR')}</span>
                 </div>
               ))}
             </div>
