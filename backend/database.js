@@ -132,12 +132,12 @@ if (!db.prepare('SELECT COUNT(*) as c FROM special_cards').get().c) {
     INSERT INTO special_cards (name, emoji, price, description, effect, maxUses, image) VALUES (?, ?, ?, ?, ?, ?, ?)
   `);
   [
-    ['CAVEIRA CARD', '💀', 1500000, 'Manda um jogador para a cadeia por 2 rodadas: enquanto preso, ele NÃO recebe pagamentos.', 'caveira', 1, 'caveira-card.png'],
-    ['PATRIA EXPRESS', '🏛️', 700000, 'Isenção de impostos por até 3 vezes no jogo: isenta o seu último pagamento ao Imposto (Férias).', 'patria', 3, 'patria-express.png'],
-    ['ADVENTURE CARD', '🚀', 1000000, 'Pague alguém sem descontar do seu saldo: o Banco paga a pessoa escolhida por você. Uso único no jogo.', 'adventure', 1, 'adventure-card.png'],
-    ['BIQUINI EXPRESS', '🩱', 1250000, 'Passivo: você recebe +10% em todo dinheiro que o Banco do Governo pagar para você.', 'biquini', 0, 'biquini-express.png'],
-    ['KING JAMES', '👑', 1500000, 'Passivo: você recebe +15% em TODOS os Pix que chegar para você (o Banco paga o extra).', 'king', 0, 'king-james.png'],
-    ['SNOPY CARD', '🐶', 2500000, 'Sai do vermelho e fica limpo: zera o seu saldo uma vez no jogo (o Banco absorve a dívida).', 'snopy', 1, 'snopy.png'],
+    ['CAVEIRA CARD', '💀', 1250000, 'Manda um jogador para a cadeia por 2 rodadas: enquanto preso, ele NÃO recebe pagamentos.', 'caveira', 1, 'caveira-card.png'],
+    ['PATRIA EXPRESS', '🏛️', 450000, 'Isenção de impostos por até 3 vezes no jogo: isenta o seu último pagamento ao Imposto (Férias).', 'patria', 3, 'patria-express.png'],
+    ['ADVENTURE CARD', '🚀', 750000, 'Pague alguém sem descontar do seu saldo: o Banco paga a pessoa escolhida por você. Uso único no jogo.', 'adventure', 1, 'adventure-card.png'],
+    ['BIQUINI EXPRESS', '🩱', 1000000, 'Passivo: você recebe +10% em todo dinheiro que o Banco do Governo pagar para você.', 'biquini', 0, 'biquini-express.png'],
+    ['KING JAMES', '👑', 1250000, 'Passivo: você recebe +15% em TODOS os Pix que chegar para você (o Banco paga o extra).', 'king', 0, 'king-james.png'],
+    ['SNOPY CARD', '🐶', 2250000, 'Sai do vermelho e fica limpo: zera o seu saldo uma vez no jogo (o Banco absorve a dívida).', 'snopy', 1, 'snopy.png'],
   ].forEach(c => insert.run(...c));
 }
 [
@@ -156,5 +156,17 @@ db.prepare("UPDATE special_cards SET price = 1500000, description = 'Manda um jo
 
 // KING JAMES agora dá +15% em todo Pix recebido (aplica em bases já existentes)
 db.prepare("UPDATE special_cards SET description = 'Passivo: você recebe +15% em TODOS os Pix que chegar para você (o Banco paga o extra).' WHERE effect = 'king'").run();
+
+// Todos os cartões ficaram 250 mil mais baratos (aplica em bases já existentes)
+[
+  ['caveira', 1250000],
+  ['patria', 450000],
+  ['adventure', 750000],
+  ['biquini', 1000000],
+  ['king', 1250000],
+  ['snopy', 2250000],
+].forEach(([eff, price]) => {
+  db.prepare('UPDATE special_cards SET price = ? WHERE effect = ?').run(price, eff);
+});
 
 module.exports = db;
