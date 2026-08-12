@@ -455,18 +455,56 @@ io.on('connection', (socket) => {
       }
     }
 
-    // KING JAMES: +15% em TODO pix que o dono do cartão receber (o extra é pago pelo Banco)
+// KING JAMES: +15% em TODO pix que o dono do cartão receber (o extra é pago pelo Banco)
     let kingBonus = 0;
     if (receiver.role === 'player') {
-      const king = db.prepare("SELECT id FROM special_cards WHERE effect = 'king' AND ownerId = ?").get(receiverId);
+      const king = db.prepare("SELECT id FROM special_cards WHERE effect = ? AND ownerId = ?").get('king', receiverId);
       if (king) {
         kingBonus = Math.ceil((effectiveAmount * 0.15) / 1000) * 1000;
         if (banco) db.prepare('UPDATE users SET balance = balance - ? WHERE id = ?').run(kingBonus, banco.id);
       }
     }
+    // CASCUDO EXPRESS: paga 40% a menos (mas quem recebe fica com o valor cheio)
+    let cassudoBonus = 0;
+    if (sender.role === 'player' && sender.username !== 'Banco') {
+      const cassudo = db.prepare("SELECT id FROM special_cards WHERE effect = ? AND ownerId = ?").get('cassudo', senderId);
+      if (cassudo) {
+        const discount = Math.floor((amount * 0.4) / 1000) * 1000;
+        if (discount > 0) {
+          cassudoBonus = discount;
+          effectiveAmount = amount - discount;
+        }
+      }
+    }
     const paidToReceiver = effectiveAmount + kingBonus;
 
-    db.prepare('UPDATE users SET balance = balance - ? WHERE id = ?').run(effectiveAmount, senderId);
+// TIGRINHO EXPRESS: dobro ao receber Férias (apenas para jogadores)
+if (receiver.role === 'player') {
+  const tigrinho = db.prepare("SELECT id FROM special_cards WHERE effect = ? AND ownerId = ?").get('tigrinho', receiverId);
+  if (tigrinho) {
+    paidToReceiver *= 2;
+  }
+}
+
+// FUGA EXPRESS: libera da cadeia (zerar jailedRounds)
+if (receiver.role === 'player' && receiver.username === 'Fúgia' || receiver.role === 'player') {
+  // Check if user is currently jailed
+  const user = db.prepare("SELECT jailedRounds FROM users WHERE id = ?").get(receiverId);
+  if (user && user.jailedRounds > 0) {
+    db.prepare("UPDATE users SET jailedRounds = 0 WHERE id = ?").run(receiverId);
+  }
+}
+
+// FUGA EXPRESS: libera da cadeia (zerar jailedRounds)
+if (receiver.role === 'player' && receiver.username === 'Fúgia' || receiver.role === 'player') {
+  // Check if user is currently jailed
+  const user = db.prepare("SELECT jailedRounds FROM users WHERE id = ?").get(receiverId);
+  if (user && user.jailedRounds > 0) {
+    db.prepare("UPDATE users SET jailedRounds = 0 WHERE id = ?").run(receiverId);
+  }
+}
+
+db.prepare('UPDATE users SET balance = balance - ? WHERE id = ?').run(effectiveAmount, senderId);
     db.prepare('UPDATE users SET balance = balance + ? WHERE id = ?').run(paidToReceiver, receiverId);
     db.prepare('INSERT INTO transactions (senderId, receiverId, amount) VALUES (?, ?, ?)').run(senderId, receiverId, paidToReceiver);
 
