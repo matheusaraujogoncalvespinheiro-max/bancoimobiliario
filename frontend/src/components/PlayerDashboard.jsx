@@ -392,6 +392,37 @@ export default function PlayerDashboard({ user, setUser, socket, onLogout }) {
         </div>
       </div>
 
+      {/* Seletor de tema do site (visível quando o jogador tem cartões) */}
+      {ownedCards.length > 0 && (
+        <div style={{ background: 'var(--card-bg)', border: '1px solid var(--glass-border)', borderRadius: '12px', padding: '12px 14px', marginBottom: '20px' }}>
+          <div style={{ fontSize: '12px', fontWeight: 'bold', color: 'var(--text-muted)', marginBottom: '8px' }}>
+            🎨 Tema do site (toque no cartão para ativar)
+          </div>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            {ownedCards.map(c => {
+              const on = Number(c.id) === Number(activeCardId);
+              return (
+                <div
+                  key={c.id}
+                  onClick={() => setActiveCardId(on ? null : c.id)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer',
+                    background: on ? 'var(--primary)' : '#f1f5f9',
+                    border: on ? '2px solid var(--primary)' : '1px solid #e2e8f0',
+                    borderRadius: '10px', padding: '6px 10px', transition: '0.2s'
+                  }}
+                >
+                  <img src={`/cards/${c.image}`} alt={c.name} style={{ width: '34px', height: '24px', objectFit: 'cover', borderRadius: '4px' }} />
+                  <span style={{ fontSize: '13px', fontWeight: '600', color: on ? 'white' : 'var(--text-main)' }}>
+                    {c.emoji} {c.name.split(' ')[0]}{on ? ' ✓' : ''}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Férias badge */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: '#fff9e6', border: '1px solid #fde68a', borderRadius: '12px', padding: '12px 16px', marginBottom: '20px' }}>
         <PiggyBank size={24} color="#d97706" />
