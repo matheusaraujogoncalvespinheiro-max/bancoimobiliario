@@ -87,6 +87,14 @@ const applyCardEffect = (user, card, receiverId, amount) => {
     return null;
   }
 
+  if (card.effect === 'fugir') {
+    const jailed = db.prepare('SELECT jailedRounds FROM users WHERE id = ?').get(user.id);
+    if (!jailed || Number(jailed.jailedRounds) <= 0) return 'Você não está preso na cadeia.';
+    db.prepare('UPDATE users SET jailedRounds = 0 WHERE id = ?').run(user.id);
+    io.to(`user_${user.id}`).emit('jail_released');
+    return null;
+  }
+
   return 'Este cartão é passivo e não precisa ser usado.';
 };
 
@@ -417,7 +425,7 @@ io.on('connection', (socket) => {
       return;
     }
 
-    const receiver = db.prepare('SELECT username, role, isBankrupt FROM users WHERE id = ?').get(receiverId);
+    const receiver = db.prepare('SELECT username, role, balance, isBankrupt FROM users WHERE id = ?').get(receiverId);
     if (!receiver) return socket.emit('pix_error', 'Destinatário não encontrado.');
     if (receiver.isBankrupt) {
       socket.emit('pix_error', `${receiver.username} faliu e está fora do jogo. Não é possível enviar dinheiro para ele.`);
@@ -476,7 +484,7 @@ if (receiver.role === 'player' && receiver.balance < 1000000) {
         }
       }
     }
-    const paidToReceiver = effectiveAmount + kingBonus;
+    let paidToReceiver = effectiveAmount + kingBonus;
 
 // TIGRINHO EXPRESS: dobro ao receber Férias (apenas para jogadores)
     if (receiver.role === 'player') {
@@ -485,24 +493,6 @@ if (receiver.role === 'player' && receiver.balance < 1000000) {
         paidToReceiver *= 2;
       }
     }
-
-// FUGA EXPRESS: libera da cadeia (zerar jailedRounds)
-if (receiver.role === 'player' && receiver.username === 'Fúgia' || receiver.username === 'Férias') {
-  // Check if user is currently jailed
-  const user = db.prepare("SELECT jailedRounds FROM users WHERE id = ?").get(receiverId);
-  if (user && user.jailedRounds > 0) {
-    db.prepare("UPDATE users SET jailedRounds = 0 WHERE id = ?").run(receiverId);
-  }
-}
-
-// FUGA EXPRESS: libera da cadeia (zerar jailedRounds)
-if (receiver.role === 'player' && receiver.username === 'Fúgia' || receiver.role === 'player') {
-  // Check if user is currently jailed
-  const user = db.prepare("SELECT jailedRounds FROM users WHERE id = ?").get(receiverId);
-  if (user && user.jailedRounds > 0) {
-    db.prepare("UPDATE users SET jailedRounds = 0 WHERE id = ?").run(receiverId);
-  }
-}
 
 db.prepare('UPDATE users SET balance = balance - ? WHERE id = ?').run(effectiveAmount, senderId);
     db.prepare('UPDATE users SET balance = balance + ? WHERE id = ?').run(paidToReceiver, receiverId);
