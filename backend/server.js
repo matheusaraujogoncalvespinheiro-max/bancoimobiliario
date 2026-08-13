@@ -52,6 +52,25 @@ const applyCardEffect = (user, card, receiverId, amount) => {
     return null;
   }
 
+  if (card.effect === 'deep') {
+    if (!amount || amount <= 0) return 'Informe o valor do imposto (Férias) a ser pago.';
+    if (amount % 1000 !== 0) return 'O valor deve ser múltiplo de 1.000.';
+    if (!banco || !ferias) return 'Banco ou Férias não encontrado.';
+    const playerPays = amount - Math.floor((amount * 0.25) / 1000) * 1000;
+    if (user.balance < playerPays) {
+      return `Saldo insuficiente. Você precisa de M$ ${playerPays.toLocaleString('pt-BR')} (25% a menos de M$ ${amount.toLocaleString('pt-BR')}).`;
+    }
+    db.prepare('UPDATE users SET balance = balance - ? WHERE id = ?').run(playerPays, user.id);
+    if (amount - playerPays > 0) db.prepare('UPDATE users SET balance = balance - ? WHERE id = ?').run(amount - playerPays, banco.id);
+    db.prepare('UPDATE users SET balance = balance + ? WHERE id = ?').run(amount, ferias.id);
+    db.prepare('INSERT INTO transactions (senderId, receiverId, amount) VALUES (?, ?, ?)').run(user.id, ferias.id, amount);
+    const fRow = db.prepare('SELECT balance FROM users WHERE id = ?').get(ferias.id);
+    const sRow = db.prepare('SELECT balance FROM users WHERE id = ?').get(user.id);
+    io.emit('ferias_updated', { balance: fRow?.balance });
+    io.to(`user_${user.id}`).emit('pix_success', { amount: playerPays, newBalance: sRow?.balance, to: 'Imposto (Férias) - THE DEEP CARD' });
+    return null;
+  }
+
   if (card.effect === 'snopy') {
     if (user.balance >= 0) return 'A pessoa já está com saldo positivo.';
     const owed = -user.balance;
@@ -657,6 +676,10 @@ db.prepare('UPDATE users SET balance = balance - ? WHERE id = ?').run(effectiveA
     }
     if (card.effect === 'patria') {
       if (!amount || amount <= 0) return socket.emit('pix_error', 'Informe o valor do imposto (Férias) a ser isentado.');
+      if (amount % 1000 !== 0) return socket.emit('pix_error', 'O valor deve ser múltiplo de 1.000.');
+    }
+    if (card.effect === 'deep') {
+      if (!amount || amount <= 0) return socket.emit('pix_error', 'Informe o valor do imposto (Férias) a ser pago.');
       if (amount % 1000 !== 0) return socket.emit('pix_error', 'O valor deve ser múltiplo de 1.000.');
     }
     if (card.effect === 'snopy' && user.balance >= 0) {

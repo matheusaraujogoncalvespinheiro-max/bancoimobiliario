@@ -142,6 +142,7 @@ if (!db.prepare('SELECT COUNT(*) as c FROM special_cards').get().c) {
     ['FUGA EXPRESS', '🏃', 350000, 'Liberte-se da cadeia: acabe a pena imediatamente. Uso único no jogo.', 'fugir', 1, 'fugue-express.png'],
     ['CASCUDO EXPRESS', '🐚', 750000, 'Use para pagar alguém: você paga 40% a menos e a pessoa recebe o valor integral. Uso 2 vezes no jogo.', 'cassudo', 2, 'cassudo-express.png'],
     ['ADVENTURE EXPRESS', '🚀', 950000, 'Use para pagar alguém: o cartão paga 60% do valor que você estiver devendo e a pessoa recebe o valor integral. Uso 2 vezes no jogo.', 'adventurex', 2, 'adventure-card.png'],
+    ['THE DEEP CARD', '🎰', 100000, 'Use para pagar o imposto (Férias): você paga 25% a menos para o Governo. Uso 3 vezes no jogo.', 'deep', 3, 'deep-card.png'],
   ].forEach(c => insert.run(...c));
 }
 [
@@ -155,6 +156,7 @@ if (!db.prepare('SELECT COUNT(*) as c FROM special_cards').get().c) {
   ['fugue-express.png', 'fugir'],
   ['cassudo-express.png', 'cassudo'],
   ['adventure-card.png', 'adventurex'],
+  ['deep-card.png', 'deep'],
 ].forEach(([img, eff]) => {
   db.prepare('UPDATE special_cards SET image = ? WHERE effect = ?').run(img, eff);
 });
@@ -165,6 +167,7 @@ if (!db.prepare('SELECT COUNT(*) as c FROM special_cards').get().c) {
   ['FUGA EXPRESS', '🏃', 350000, 'Liberte-se da cadeia: acabe a pena imediatamente. Uso único no jogo.', 'fugir', 1, 'fugue-express.png'],
   ['CASCUDO EXPRESS', '🐚', 750000, 'Use para pagar alguém: você paga 40% a menos e a pessoa recebe o valor integral. Uso 2 vezes no jogo.', 'cassudo', 2, 'cassudo-express.png'],
   ['ADVENTURE EXPRESS', '🚀', 950000, 'Use para pagar alguém: o cartão paga 60% do valor que você estiver devendo e a pessoa recebe o valor integral. Uso 2 vezes no jogo.', 'adventurex', 2, 'adventure-card.png'],
+  ['THE DEEP CARD', '🎰', 100000, 'Use para pagar o imposto (Férias): você paga 25% a menos para o Governo. Uso 3 vezes no jogo.', 'deep', 3, 'deep-card.png'],
 ].forEach(([name, emoji, price, description, effect, maxUses, image]) => {
   const existing = db.prepare('SELECT id FROM special_cards WHERE effect = ?').get(effect);
   if (!existing) {
@@ -199,6 +202,11 @@ if (!db.prepare("SELECT id FROM special_cards WHERE effect = 'adventurex'").get(
   db.prepare("INSERT INTO special_cards (name, emoji, price, description, effect, maxUses, image) VALUES ('ADVENTURE EXPRESS', '🚀', 950000, 'Use para pagar alguém: o cartão paga 60% do valor que você estiver devendo e a pessoa recebe o valor integral. Uso 2 vezes no jogo.', 'adventurex', 2, 'adventure-card.png')").run();
 }
 
+// THE DEEP CARD: cartão novo (insere se não existir)
+if (!db.prepare("SELECT id FROM special_cards WHERE effect = 'deep'").get()) {
+  db.prepare("INSERT INTO special_cards (name, emoji, price, description, effect, maxUses, image) VALUES ('THE DEEP CARD', '🎰', 100000, 'Use para pagar o imposto (Férias): você paga 25% a menos para o Governo. Uso 3 vezes no jogo.', 'deep', 3, 'deep-card.png')").run();
+}
+
 // Todos os cartões ficaram 250 mil mais baratos (aplica em bases já existentes)
 [
   ['caveira', 1250000],
@@ -209,6 +217,7 @@ if (!db.prepare("SELECT id FROM special_cards WHERE effect = 'adventurex'").get(
   ['snopy', 2250000],
   ['cassudo', 750000],
   ['adventurex', 950000],
+  ['deep', 100000],
 ].forEach(([eff, price]) => {
   db.prepare('UPDATE special_cards SET price = ? WHERE effect = ?').run(price, eff);
 });

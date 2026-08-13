@@ -26,6 +26,7 @@ const CARD_THEMES = {
   adventurex:{ primary: '#7c3aed', hover: '#6d28d9', bg: '#f5f3ff', grad: 'linear-gradient(135deg, #4c1d95, #9333ea)', shadow: '0 10px 25px rgba(124, 58, 237, 0.45)' },
   tigrinho:  { primary: '#059669', hover: '#047857', bg: '#ecfdf5', grad: 'linear-gradient(135deg, #064e3b, #10b981)', shadow: '0 10px 25px rgba(5, 150, 105, 0.45)' },
   fugir:     { primary: '#0369a1', hover: '#075985', bg: '#f0f9ff', grad: 'linear-gradient(135deg, #0c4a6e, #0284c7)', shadow: '0 10px 25px rgba(3, 105, 161, 0.45)' },
+  deep:      { primary: '#0e7490', hover: '#155e75', bg: '#ecfeff', grad: 'linear-gradient(135deg, #164e63, #06b6d4)', shadow: '0 10px 25px rgba(14, 116, 144, 0.45)' },
 };
 
 export default function PlayerDashboard({ user, setUser, socket, onLogout }) {
@@ -295,6 +296,11 @@ export default function PlayerDashboard({ user, setUser, socket, onLogout }) {
       return;
     }
     if (c.effect === 'patria') {
+      setPatriaAmountDisplay('');
+      setPatriaModal(c);
+      return;
+    }
+    if (c.effect === 'deep') {
       setPatriaAmountDisplay('');
       setPatriaModal(c);
       return;
@@ -752,10 +758,16 @@ export default function PlayerDashboard({ user, setUser, socket, onLogout }) {
       {patriaModal && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
           <div className="glass animate-slide-up" style={{ width: '90%', maxWidth: '380px', textAlign: 'center' }}>
-            <h3>🏛️ PATRIA EXPRESS</h3>
-            <p style={{ color: 'var(--text-muted)', fontSize: '14px', margin: '10px 0' }}>
-              Você digita o valor do <strong>Imposto (Férias)</strong> e o <strong>Banco paga no seu lugar</strong>. Nada sai do seu saldo.
-            </p>
+            <h3>{patriaModal.effect === 'deep' ? '🎰 THE DEEP CARD' : '🏛️ PATRIA EXPRESS'}</h3>
+            {patriaModal.effect === 'deep' ? (
+              <p style={{ color: 'var(--text-muted)', fontSize: '14px', margin: '10px 0' }}>
+                Você digita o valor do <strong>Imposto (Férias)</strong> e paga <strong>25% a menos</strong>. O Governo recebe o valor integral.
+              </p>
+            ) : (
+              <p style={{ color: 'var(--text-muted)', fontSize: '14px', margin: '10px 0' }}>
+                Você digita o valor do <strong>Imposto (Férias)</strong> e o <strong>Banco paga no seu lugar</strong>. Nada sai do seu saldo.
+              </p>
+            )}
             <input
               className="input-field"
               type="text"
@@ -766,7 +778,7 @@ export default function PlayerDashboard({ user, setUser, socket, onLogout }) {
             />
             <div style={{ display: 'flex', gap: '12px', marginTop: '16px' }}>
               <button className="btn-secondary" style={{ flex: 1 }} onClick={() => setPatriaModal(null)}>Cancelar</button>
-              <button className="btn-primary" style={{ flex: 1 }} onClick={handleConfirmPatria}>Isentar</button>
+              <button className="btn-primary" style={{ flex: 1 }} onClick={handleConfirmPatria}>{patriaModal.effect === 'deep' ? 'Pagar' : 'Isentar'}</button>
             </div>
           </div>
         </div>
