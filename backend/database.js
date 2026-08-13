@@ -141,7 +141,7 @@ if (!db.prepare('SELECT COUNT(*) as c FROM special_cards').get().c) {
     ['TIGRINHO EXPRESS', '🎠', 1500000, 'Ganha o dobro quando recebe as parcelas da Férias (o seu recebimento é dobrado).', 'tigrinho', 0, 'tigrinho-express.png'],
     ['FUGA EXPRESS', '🏃', 350000, 'Liberte-se da cadeia: acabe a pena imediatamente. Uso único no jogo.', 'fugir', 1, 'fugue-express.png'],
     ['CASCUDO EXPRESS', '🐚', 750000, 'Use para pagar alguém: você paga 40% a menos e a pessoa recebe o valor integral. Uso 2 vezes no jogo.', 'cassudo', 2, 'cassudo-express.png'],
-    ['ADVENTURE EXPRESS', '🚀', 950000, 'Use para pagar alguém: o cartão paga 60% do valor que você estiver devendo e a pessoa recebe o valor integral. Uso 2 vezes no jogo.', 'adventurex', 2, 'adventure-card.png'],
+    ['ADVENTURE EXPRESS', '🚀', 950000, 'Use para pagar alguém: o cartão paga 60% do valor que você estiver devendo e a pessoa recebe o valor integral. Uso 2 vezes no jogo.', 'adventurex', 2, 'adventure-express.png'],
     ['THE DEEP CARD', '🎰', 100000, 'Use para pagar o imposto (Férias): você paga 25% a menos para o Governo. Uso 3 vezes no jogo.', 'deep', 3, 'deep-card.png'],
     ['KING CURRY CARD', '👑', 4000000, 'Passivo: você ganha +10% de TODAS as transferências do jogo (o Banco paga o extra).', 'curry', 0, 'curry-card.png'],
   ].forEach(c => insert.run(...c));
@@ -156,7 +156,7 @@ if (!db.prepare('SELECT COUNT(*) as c FROM special_cards').get().c) {
   ['tigrinho-express.png', 'tigrinho'],
   ['fugue-express.png', 'fugir'],
   ['cassudo-express.png', 'cassudo'],
-  ['adventure-card.png', 'adventurex'],
+  ['adventure-express.png', 'adventurex'],
   ['deep-card.png', 'deep'],
   ['curry-card.png', 'curry'],
 ].forEach(([img, eff]) => {
@@ -168,7 +168,7 @@ if (!db.prepare('SELECT COUNT(*) as c FROM special_cards').get().c) {
   ['TIGRINHO EXPRESS', '🎠', 1500000, 'Ganha o dobro quando recebe as parcelas da Férias (o seu recebimento é dobrado).', 'tigrinho', 0, 'tigrinho-express.png'],
   ['FUGA EXPRESS', '🏃', 350000, 'Liberte-se da cadeia: acabe a pena imediatamente. Uso único no jogo.', 'fugir', 1, 'fugue-express.png'],
   ['CASCUDO EXPRESS', '🐚', 750000, 'Use para pagar alguém: você paga 40% a menos e a pessoa recebe o valor integral. Uso 2 vezes no jogo.', 'cassudo', 2, 'cassudo-express.png'],
-  ['ADVENTURE EXPRESS', '🚀', 950000, 'Use para pagar alguém: o cartão paga 60% do valor que você estiver devendo e a pessoa recebe o valor integral. Uso 2 vezes no jogo.', 'adventurex', 2, 'adventure-card.png'],
+  ['ADVENTURE EXPRESS', '🚀', 950000, 'Use para pagar alguém: o cartão paga 60% do valor que você estiver devendo e a pessoa recebe o valor integral. Uso 2 vezes no jogo.', 'adventurex', 2, 'adventure-express.png'],
   ['THE DEEP CARD', '🎰', 100000, 'Use para pagar o imposto (Férias): você paga 25% a menos para o Governo. Uso 3 vezes no jogo.', 'deep', 3, 'deep-card.png'],
   ['KING CURRY CARD', '👑', 4000000, 'Passivo: você ganha +10% de TODAS as transferências do jogo (o Banco paga o extra).', 'curry', 0, 'curry-card.png'],
 ].forEach(([name, emoji, price, description, effect, maxUses, image]) => {
@@ -202,7 +202,7 @@ db.prepare("UPDATE special_cards SET maxUses = 2, description = 'Use para pagar 
 
 // ADVENTURE EXPRESS: cartão novo (insere se não existir)
 if (!db.prepare("SELECT id FROM special_cards WHERE effect = 'adventurex'").get()) {
-  db.prepare("INSERT INTO special_cards (name, emoji, price, description, effect, maxUses, image) VALUES ('ADVENTURE EXPRESS', '🚀', 950000, 'Use para pagar alguém: o cartão paga 60% do valor que você estiver devendo e a pessoa recebe o valor integral. Uso 2 vezes no jogo.', 'adventurex', 2, 'adventure-card.png')").run();
+  db.prepare("INSERT INTO special_cards (name, emoji, price, description, effect, maxUses, image) VALUES ('ADVENTURE EXPRESS', '🚀', 950000, 'Use para pagar alguém: o cartão paga 60% do valor que você estiver devendo e a pessoa recebe o valor integral. Uso 2 vezes no jogo.', 'adventurex', 2, 'adventure-express.png')").run();
 }
 
 // THE DEEP CARD: cartão novo (insere se não existir)
@@ -214,6 +214,10 @@ if (!db.prepare("SELECT id FROM special_cards WHERE effect = 'deep'").get()) {
 if (!db.prepare("SELECT id FROM special_cards WHERE effect = 'curry'").get()) {
   db.prepare("INSERT INTO special_cards (name, emoji, price, description, effect, maxUses, image) VALUES ('KING CURRY CARD', '👑', 4000000, 'Passivo: você ganha +10% de TODAS as transferências do jogo (o Banco paga o extra).', 'curry', 0, 'curry-card.png')").run();
 }
+
+// Imagens corretas dos cartões (aplica em bases já existentes)
+db.prepare("UPDATE special_cards SET image = 'adventure-express.png' WHERE effect = 'adventurex'").run();
+db.prepare("UPDATE special_cards SET image = 'deep-card.png' WHERE effect = 'deep'").run();
 
 // Todos os cartões ficaram 250 mil mais baratos (aplica em bases já existentes)
 [
