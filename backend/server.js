@@ -95,6 +95,29 @@ const applyCardEffect = (user, card, receiverId, amount) => {
     return null;
   }
 
+  if (card.effect === 'cassudo') {
+    if (!receiverId || !amount || amount <= 0) return 'Escolha a pessoa e o valor a pagar.';
+    if (amount % 1000 !== 0) return 'O valor deve ser múltiplo de 1.000.';
+    const receiver = db.prepare('SELECT id, role, isBankrupt, username FROM users WHERE id = ?').get(receiverId);
+    if (!receiver || receiver.role !== 'player' || Number(receiver.id) === Number(user.id)) return 'Destinatário inválido.';
+    if (receiver.isBankrupt) return 'Esse jogador já faliu e está fora do jogo.';
+    if (isJailed(receiver.id)) return `O jogador ${receiver.username} está preso na cadeia e não pode receber pagamentos.`;
+    const discount = Math.floor((amount * 0.4) / 1000) * 1000;
+    const payerPays = amount - discount;
+    if (user.balance < payerPays) {
+      return `Saldo insuficiente. Você precisa de M$ ${payerPays.toLocaleString('pt-BR')} (40% a menos de M$ ${amount.toLocaleString('pt-BR')}).`;
+    }
+    db.prepare('UPDATE users SET balance = balance - ? WHERE id = ?').run(payerPays, user.id);
+    db.prepare('UPDATE users SET balance = balance + ? WHERE id = ?').run(amount, receiver.id);
+    if (discount > 0 && banco) db.prepare('UPDATE users SET balance = balance - ? WHERE id = ?').run(discount, banco.id);
+    db.prepare('INSERT INTO transactions (senderId, receiverId, amount) VALUES (?, ?, ?)').run(user.id, receiver.id, amount);
+    const rRow = db.prepare('SELECT balance FROM users WHERE id = ?').get(receiver.id);
+    const sRow = db.prepare('SELECT balance FROM users WHERE id = ?').get(user.id);
+    io.to(`user_${receiver.id}`).emit('pix_received', { from: `CASCUDO EXPRESS (${user.username})`, amount, newBalance: rRow?.balance });
+    io.to(`user_${user.id}`).emit('pix_success', { amount: payerPays, newBalance: sRow?.balance, to: receiver.username });
+    return null;
+  }
+
   return 'Este cartão é passivo e não precisa ser usado.';
 };
 
@@ -472,18 +495,7 @@ if (receiver.role === 'player' && receiver.balance < 1000000) {
         if (banco) db.prepare('UPDATE users SET balance = balance - ? WHERE id = ?').run(kingBonus, banco.id);
       }
     }
-    // CASCUDO EXPRESS: paga 40% a menos (mas quem recebe fica com o valor cheio)
-    let cassudoBonus = 0;
-    if (sender.role === 'player' && sender.username !== 'Banco') {
-      const cassudo = db.prepare("SELECT id FROM special_cards WHERE effect = ? AND ownerId = ?").get('cassudo', senderId);
-      if (cassudo) {
-        const discount = Math.floor((amount * 0.4) / 1000) * 1000;
-        if (discount > 0) {
-          cassudoBonus = discount;
-          effectiveAmount = amount - discount;
-        }
-      }
-    }
+    // CASCUDO EXPRESS agora é cartão ativo (uso via Admin). O desconto de 40% é aplicado em applyCardEffect.
     let paidToReceiver = effectiveAmount + kingBonus;
 
 // TIGRINHO EXPRESS: dobro ao receber Férias (apenas para jogadores)
@@ -594,6 +606,15 @@ db.prepare('UPDATE users SET balance = balance - ? WHERE id = ?').run(effectiveA
     if (already) return socket.emit('pix_error', 'Já existe um pedido em aprovação para este cartão.');
 
     if (card.effect === 'adventure') {
+      if (!receiverId || !amount || amount <= 0) return socket.emit('pix_error', 'Escolha a pessoa e o valor a pagar.');
+      if (amount % 1000 !== 0) return socket.emit('pix_error', 'O valor deve ser múltiplo de 1.000.');
+      const receiver = db.prepare('SELECT id, role, isBankrupt FROM users WHERE id = ?').get(receiverId);
+      if (!receiver || receiver.role !== 'player' || Number(receiver.id) === Number(user.id)) {
+        return socket.emit('pix_error', 'Destinatário inválido. Escolha outro jogador.');
+      }
+      if (receiver.isBankrupt) return socket.emit('pix_error', 'Esse jogador faliu e está fora do jogo.');
+    }
+    if (card.effect === 'cassudo') {
       if (!receiverId || !amount || amount <= 0) return socket.emit('pix_error', 'Escolha a pessoa e o valor a pagar.');
       if (amount % 1000 !== 0) return socket.emit('pix_error', 'O valor deve ser múltiplo de 1.000.');
       const receiver = db.prepare('SELECT id, role, isBankrupt FROM users WHERE id = ?').get(receiverId);

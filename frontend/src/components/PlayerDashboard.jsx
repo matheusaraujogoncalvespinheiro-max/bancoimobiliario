@@ -22,6 +22,9 @@ const CARD_THEMES = {
   biquini:   { primary: '#db2777', hover: '#be185d', bg: '#fdf2f8', grad: 'linear-gradient(135deg, #831843, #db2777)', shadow: '0 10px 25px rgba(219, 39, 119, 0.45)' },
   king:      { primary: '#b45309', hover: '#92400e', bg: '#fffbeb', grad: 'linear-gradient(135deg, #78350f, #d97706)', shadow: '0 10px 25px rgba(180, 83, 9, 0.45)' },
   snopy:     { primary: '#0d9488', hover: '#0f766e', bg: '#f0fdfa', grad: 'linear-gradient(135deg, #134e4a, #0f766e)', shadow: '0 10px 25px rgba(13, 148, 136, 0.45)' },
+  cassudo:   { primary: '#c2410c', hover: '#9a3412', bg: '#fff7ed', grad: 'linear-gradient(135deg, #7c2d12, #ea580c)', shadow: '0 10px 25px rgba(194, 65, 12, 0.45)' },
+  tigrinho:  { primary: '#059669', hover: '#047857', bg: '#ecfdf5', grad: 'linear-gradient(135deg, #064e3b, #10b981)', shadow: '0 10px 25px rgba(5, 150, 105, 0.45)' },
+  fugir:     { primary: '#0369a1', hover: '#075985', bg: '#f0f9ff', grad: 'linear-gradient(135deg, #0c4a6e, #0284c7)', shadow: '0 10px 25px rgba(3, 105, 161, 0.45)' },
 };
 
 export default function PlayerDashboard({ user, setUser, socket, onLogout }) {
@@ -51,6 +54,11 @@ export default function PlayerDashboard({ user, setUser, socket, onLogout }) {
   const [adventureModal, setAdventureModal] = useState(null);
   const [adventureReceiverId, setAdventureReceiverId] = useState('');
   const [adventureAmountDisplay, setAdventureAmountDisplay] = useState('');
+
+  // Cartão CASCUDO (pagar com 40% de desconto)
+  const [cascudoModal, setCascudoModal] = useState(null);
+  const [cascudoReceiverId, setCascudoReceiverId] = useState('');
+  const [cascudoAmountDisplay, setCascudoAmountDisplay] = useState('');
 
   // Cartão CAVEIRA (mandar alguém para a cadeia)
   const [jailModal, setJailModal] = useState(null);
@@ -269,6 +277,12 @@ export default function PlayerDashboard({ user, setUser, socket, onLogout }) {
       setAdventureModal(c);
       return;
     }
+    if (c.effect === 'cassudo') {
+      setCascudoReceiverId('');
+      setCascudoAmountDisplay('');
+      setCascudoModal(c);
+      return;
+    }
     if (c.effect === 'caveira') {
       setJailReceiverId('');
       setJailModal(c);
@@ -290,6 +304,14 @@ export default function PlayerDashboard({ user, setUser, socket, onLogout }) {
     if (val % 1000 !== 0) return alert('O valor deve ser múltiplo de 1.000.');
     socket.emit('request_card_use', { userId: uid, cardId: adventureModal.id, receiverId: Number(adventureReceiverId), amount: val });
     setAdventureModal(null);
+  };
+
+  const handleConfirmCascudo = () => {
+    const val = desformatarNumero(cascudoAmountDisplay);
+    if (!cascudoReceiverId || val <= 0) return alert('Escolha o jogador e informe o valor.');
+    if (val % 1000 !== 0) return alert('O valor deve ser múltiplo de 1.000.');
+    socket.emit('request_card_use', { userId: uid, cardId: cascudoModal.id, receiverId: Number(cascudoReceiverId), amount: val });
+    setCascudoModal(null);
   };
 
   const statusLabel = (status) => ({
@@ -667,6 +689,34 @@ export default function PlayerDashboard({ user, setUser, socket, onLogout }) {
             <div style={{ display: 'flex', gap: '12px', marginTop: '16px' }}>
               <button className="btn-secondary" style={{ flex: 1 }} onClick={() => setAdventureModal(null)}>Cancelar</button>
               <button className="btn-primary" style={{ flex: 1 }} onClick={handleConfirmAdventure}>Pagar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal CASCUDO CARD */}
+      {cascudoModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
+          <div className="glass animate-slide-up" style={{ width: '90%', maxWidth: '380px', textAlign: 'center' }}>
+            <h3>🐚 CASCUDO EXPRESS</h3>
+            <p style={{ color: 'var(--text-muted)', fontSize: '14px', margin: '10px 0' }}>
+              Você paga <strong>40% a menos</strong> e a pessoa recebe o <strong>valor integral</strong>.
+            </p>
+            <select className="input-field" value={cascudoReceiverId} onChange={e => setCascudoReceiverId(e.target.value)} style={{ textAlign: 'left' }}>
+              <option value="" disabled>Quem vai receber?</option>
+              {playerReceiversForAdventure.map(u => <option key={u.id} value={u.id}>{u.username}</option>)}
+            </select>
+            <input
+              className="input-field"
+              type="text"
+              inputMode="numeric"
+              placeholder="Valor total (múltiplos de 1.000)"
+              value={cascudoAmountDisplay}
+              onChange={e => setCascudoAmountDisplay(formatarNumero(e.target.value))}
+            />
+            <div style={{ display: 'flex', gap: '12px', marginTop: '16px' }}>
+              <button className="btn-secondary" style={{ flex: 1 }} onClick={() => setCascudoModal(null)}>Cancelar</button>
+              <button className="btn-primary" style={{ flex: 1 }} onClick={handleConfirmCascudo}>Pagar</button>
             </div>
           </div>
         </div>

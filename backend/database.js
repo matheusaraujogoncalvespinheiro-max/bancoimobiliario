@@ -140,7 +140,7 @@ if (!db.prepare('SELECT COUNT(*) as c FROM special_cards').get().c) {
     ['SNOPY CARD', '🐶', 2250000, 'Sai do vermelho e fica limpo: zera o seu saldo uma vez no jogo (o Banco absorve a dívida).', 'snopy', 1, 'snopy.png'],
     ['TIGRINHO EXPRESS', '🎠', 1500000, 'Ganha o dobro quando recebe as parcelas da Férias (o seu recebimento é dobrado).', 'tigrinho', 0, 'tigrinho-express.png'],
     ['FUGA EXPRESS', '🏃', 350000, 'Liberte-se da cadeia: acabe a pena imediatamente. Uso único no jogo.', 'fugir', 1, 'fugue-express.png'],
-    ['CASCUDO EXPRESS', '🐚', 1000000, 'Você paga 40% a menos quando faz um pagamento. Quem recebe fica com o valor cheio. Uso 3 vezes no jogo.', 'cassudo', 3, 'cassudo-express.png'],
+    ['CASCUDO EXPRESS', '🐚', 1000000, 'Use para pagar alguém: você paga 40% a menos e a pessoa recebe o valor integral. Uso 3 vezes no jogo.', 'cassudo', 3, 'cassudo-express.png'],
   ].forEach(c => insert.run(...c));
 }
 [
@@ -161,7 +161,7 @@ if (!db.prepare('SELECT COUNT(*) as c FROM special_cards').get().c) {
 [
   ['TIGRINHO EXPRESS', '🎠', 1500000, 'Ganha o dobro quando recebe as parcelas da Férias (o seu recebimento é dobrado).', 'tigrinho', 0, 'tigrinho-express.png'],
   ['FUGA EXPRESS', '🏃', 350000, 'Liberte-se da cadeia: acabe a pena imediatamente. Uso único no jogo.', 'fugir', 1, 'fugue-express.png'],
-  ['CASCUDO EXPRESS', '🐚', 1000000, 'Você paga 40% a menos quando faz um pagamento. Quem recebe fica com o valor cheio. Uso 3 vezes no jogo.', 'cassudo', 3, 'cassudo-express.png'],
+  ['CASCUDO EXPRESS', '🐚', 1000000, 'Use para pagar alguém: você paga 40% a menos e a pessoa recebe o valor integral. Uso 3 vezes no jogo.', 'cassudo', 3, 'cassudo-express.png'],
 ].forEach(([name, emoji, price, description, effect, maxUses, image]) => {
   const existing = db.prepare('SELECT id FROM special_cards WHERE effect = ?').get(effect);
   if (!existing) {
