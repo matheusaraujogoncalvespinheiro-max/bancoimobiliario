@@ -118,6 +118,29 @@ const applyCardEffect = (user, card, receiverId, amount) => {
     return null;
   }
 
+  if (card.effect === 'adventurex') {
+    if (!receiverId || !amount || amount <= 0) return 'Escolha a pessoa e o valor a pagar.';
+    if (amount % 1000 !== 0) return 'O valor deve ser múltiplo de 1.000.';
+    const receiver = db.prepare('SELECT id, role, isBankrupt, username FROM users WHERE id = ?').get(receiverId);
+    if (!receiver || receiver.role !== 'player' || Number(receiver.id) === Number(user.id)) return 'Destinatário inválido.';
+    if (receiver.isBankrupt) return 'Esse jogador já faliu e está fora do jogo.';
+    if (isJailed(receiver.id)) return `O jogador ${receiver.username} está preso na cadeia e não pode receber pagamentos.`;
+    const cardPays = Math.ceil((amount * 0.6) / 1000) * 1000;
+    const payerPays = amount - cardPays;
+    if (user.balance < payerPays) {
+      return `Saldo insuficiente. Você precisa de M$ ${payerPays.toLocaleString('pt-BR')} (o cartão paga 60% de M$ ${amount.toLocaleString('pt-BR')}).`;
+    }
+    db.prepare('UPDATE users SET balance = balance - ? WHERE id = ?').run(payerPays, user.id);
+    db.prepare('UPDATE users SET balance = balance + ? WHERE id = ?').run(amount, receiver.id);
+    if (cardPays > 0 && banco) db.prepare('UPDATE users SET balance = balance - ? WHERE id = ?').run(cardPays, banco.id);
+    db.prepare('INSERT INTO transactions (senderId, receiverId, amount) VALUES (?, ?, ?)').run(user.id, receiver.id, amount);
+    const rRow = db.prepare('SELECT balance FROM users WHERE id = ?').get(receiver.id);
+    const sRow = db.prepare('SELECT balance FROM users WHERE id = ?').get(user.id);
+    io.to(`user_${receiver.id}`).emit('pix_received', { from: `ADVENTURE EXPRESS (${user.username})`, amount, newBalance: rRow?.balance });
+    io.to(`user_${user.id}`).emit('pix_success', { amount: payerPays, newBalance: sRow?.balance, to: receiver.username });
+    return null;
+  }
+
   return 'Este cartão é passivo e não precisa ser usado.';
 };
 
@@ -476,12 +499,12 @@ io.on('connection', (socket) => {
     const banco = db.prepare("SELECT id FROM users WHERE username = 'Banco'").get();
 
     let effectiveAmount = amount;
-    // BIQUINI EXPRESS: +10% no que o jogador recebe do Banco do Governo
+    // BIQUINI EXPRESS: +50% no que o jogador recebe do Banco do Governo
     // (bônus arredondado PARA CIMA até o múltiplo de 1.000, pois só aceita Pix múltiplos de 1.000)
     if (sender.role === 'system' && sender.username === 'Banco' && receiver.role === 'player') {
       const biquini = db.prepare("SELECT id FROM special_cards WHERE effect = 'biquini' AND ownerId = ?").get(receiverId);
       if (biquini) {
-        const bonus = Math.ceil((amount * 0.1) / 1000) * 1000;
+        const bonus = Math.ceil((amount * 0.5) / 1000) * 1000;
         effectiveAmount = amount + bonus;
       }
     }
@@ -615,6 +638,15 @@ db.prepare('UPDATE users SET balance = balance - ? WHERE id = ?').run(effectiveA
       if (receiver.isBankrupt) return socket.emit('pix_error', 'Esse jogador faliu e está fora do jogo.');
     }
     if (card.effect === 'cassudo') {
+      if (!receiverId || !amount || amount <= 0) return socket.emit('pix_error', 'Escolha a pessoa e o valor a pagar.');
+      if (amount % 1000 !== 0) return socket.emit('pix_error', 'O valor deve ser múltiplo de 1.000.');
+      const receiver = db.prepare('SELECT id, role, isBankrupt FROM users WHERE id = ?').get(receiverId);
+      if (!receiver || receiver.role !== 'player' || Number(receiver.id) === Number(user.id)) {
+        return socket.emit('pix_error', 'Destinatário inválido. Escolha outro jogador.');
+      }
+      if (receiver.isBankrupt) return socket.emit('pix_error', 'Esse jogador faliu e está fora do jogo.');
+    }
+    if (card.effect === 'adventurex') {
       if (!receiverId || !amount || amount <= 0) return socket.emit('pix_error', 'Escolha a pessoa e o valor a pagar.');
       if (amount % 1000 !== 0) return socket.emit('pix_error', 'O valor deve ser múltiplo de 1.000.');
       const receiver = db.prepare('SELECT id, role, isBankrupt FROM users WHERE id = ?').get(receiverId);

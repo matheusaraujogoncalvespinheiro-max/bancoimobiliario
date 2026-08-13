@@ -134,13 +134,14 @@ if (!db.prepare('SELECT COUNT(*) as c FROM special_cards').get().c) {
   [
     ['CAVEIRA CARD', '💀', 1250000, 'Manda um jogador para a cadeia por 2 rodadas: enquanto preso, ele NÃO recebe pagamentos.', 'caveira', 1, 'caveira-card.png'],
     ['PATRIA EXPRESS', '🏛️', 450000, 'Use para pagar o imposto (Férias) por você: digita o valor e o Banco paga no seu lugar. Uso 3 vezes no jogo.', 'patria', 3, 'patria-express.png'],
-    ['ADVENTURE CARD', '🚀', 1000000, 'Pague alguém sem descontar do seu saldo: o Banco paga a pessoa escolhida por você. Uso único no jogo.', 'adventure', 1, 'adventure-card.png'],
-    ['BIQUINI EXPRESS', '🩱', 1000000, 'Passivo: você recebe +10% em todo dinheiro que o Banco do Governo pagar para você.', 'biquini', 0, 'biquini-express.png'],
+    ['ADVENTURE CARD', '🚀', 1450000, 'Pague alguém sem descontar do seu saldo: o Banco paga a pessoa escolhida por você. Uso 2 vezes no jogo.', 'adventure', 2, 'adventure-card.png'],
+    ['BIQUINI EXPRESS', '🩱', 1000000, 'Passivo: você recebe +50% em todo dinheiro que o Banco do Governo pagar para você.', 'biquini', 0, 'biquini-express.png'],
     ['KING JAMES', '👑', 1250000, 'Passivo: você recebe +25% em TODOS os Pix que chegar para você (o Banco paga o extra).', 'king', 0, 'king-james.png'],
     ['SNOPY CARD', '🐶', 2250000, 'Sai do vermelho e fica limpo: zera o seu saldo uma vez no jogo (o Banco absorve a dívida).', 'snopy', 1, 'snopy.png'],
     ['TIGRINHO EXPRESS', '🎠', 1500000, 'Ganha o dobro quando recebe as parcelas da Férias (o seu recebimento é dobrado).', 'tigrinho', 0, 'tigrinho-express.png'],
     ['FUGA EXPRESS', '🏃', 350000, 'Liberte-se da cadeia: acabe a pena imediatamente. Uso único no jogo.', 'fugir', 1, 'fugue-express.png'],
-    ['CASCUDO EXPRESS', '🐚', 750000, 'Use para pagar alguém: você paga 40% a menos e a pessoa recebe o valor integral. Uso 3 vezes no jogo.', 'cassudo', 3, 'cassudo-express.png'],
+    ['CASCUDO EXPRESS', '🐚', 750000, 'Use para pagar alguém: você paga 40% a menos e a pessoa recebe o valor integral. Uso 2 vezes no jogo.', 'cassudo', 2, 'cassudo-express.png'],
+    ['ADVENTURE EXPRESS', '🚀', 950000, 'Use para pagar alguém: o cartão paga 60% do valor que você estiver devendo e a pessoa recebe o valor integral. Uso 2 vezes no jogo.', 'adventurex', 2, 'adventure-card.png'],
   ].forEach(c => insert.run(...c));
 }
 [
@@ -153,6 +154,7 @@ if (!db.prepare('SELECT COUNT(*) as c FROM special_cards').get().c) {
   ['tigrinho-express.png', 'tigrinho'],
   ['fugue-express.png', 'fugir'],
   ['cassudo-express.png', 'cassudo'],
+  ['adventure-card.png', 'adventurex'],
 ].forEach(([img, eff]) => {
   db.prepare('UPDATE special_cards SET image = ? WHERE effect = ?').run(img, eff);
 });
@@ -161,7 +163,8 @@ if (!db.prepare('SELECT COUNT(*) as c FROM special_cards').get().c) {
 [
   ['TIGRINHO EXPRESS', '🎠', 1500000, 'Ganha o dobro quando recebe as parcelas da Férias (o seu recebimento é dobrado).', 'tigrinho', 0, 'tigrinho-express.png'],
   ['FUGA EXPRESS', '🏃', 350000, 'Liberte-se da cadeia: acabe a pena imediatamente. Uso único no jogo.', 'fugir', 1, 'fugue-express.png'],
-  ['CASCUDO EXPRESS', '🐚', 750000, 'Use para pagar alguém: você paga 40% a menos e a pessoa recebe o valor integral. Uso 3 vezes no jogo.', 'cassudo', 3, 'cassudo-express.png'],
+  ['CASCUDO EXPRESS', '🐚', 750000, 'Use para pagar alguém: você paga 40% a menos e a pessoa recebe o valor integral. Uso 2 vezes no jogo.', 'cassudo', 2, 'cassudo-express.png'],
+  ['ADVENTURE EXPRESS', '🚀', 950000, 'Use para pagar alguém: o cartão paga 60% do valor que você estiver devendo e a pessoa recebe o valor integral. Uso 2 vezes no jogo.', 'adventurex', 2, 'adventure-card.png'],
 ].forEach(([name, emoji, price, description, effect, maxUses, image]) => {
   const existing = db.prepare('SELECT id FROM special_cards WHERE effect = ?').get(effect);
   if (!existing) {
@@ -182,15 +185,30 @@ db.prepare("UPDATE special_cards SET description = 'Passivo: você recebe +25% e
 // PATRIA EXPRESS agora paga o imposto no lugar do jogador (Banco cobre) - aplica em bases já existentes
 db.prepare("UPDATE special_cards SET description = 'Use para pagar o imposto (Férias) por você: digita o valor e o Banco paga no seu lugar. Uso 3 vezes no jogo.' WHERE effect = 'patria'").run();
 
+// BIQUINI EXPRESS agora dá +50% (era +10%) - aplica em bases já existentes
+db.prepare("UPDATE special_cards SET description = 'Passivo: você recebe +50% em todo dinheiro que o Banco do Governo pagar para você.' WHERE effect = 'biquini'").run();
+
+// ADVENTURE CARD agora custa 1.45M e tem 2 usos - aplica em bases já existentes
+db.prepare("UPDATE special_cards SET price = 1450000, maxUses = 2, description = 'Pague alguém sem descontar do seu saldo: o Banco paga a pessoa escolhida por você. Uso 2 vezes no jogo.' WHERE effect = 'adventure'").run();
+
+// CASCUDO EXPRESS agora tem 2 usos - aplica em bases já existentes
+db.prepare("UPDATE special_cards SET maxUses = 2, description = 'Use para pagar alguém: você paga 40% a menos e a pessoa recebe o valor integral. Uso 2 vezes no jogo.' WHERE effect = 'cassudo'").run();
+
+// ADVENTURE EXPRESS: cartão novo (insere se não existir)
+if (!db.prepare("SELECT id FROM special_cards WHERE effect = 'adventurex'").get()) {
+  db.prepare("INSERT INTO special_cards (name, emoji, price, description, effect, maxUses, image) VALUES ('ADVENTURE EXPRESS', '🚀', 950000, 'Use para pagar alguém: o cartão paga 60% do valor que você estiver devendo e a pessoa recebe o valor integral. Uso 2 vezes no jogo.', 'adventurex', 2, 'adventure-card.png')").run();
+}
+
 // Todos os cartões ficaram 250 mil mais baratos (aplica em bases já existentes)
 [
   ['caveira', 1250000],
   ['patria', 450000],
-  ['adventure', 1000000],
+  ['adventure', 1450000],
   ['biquini', 1000000],
   ['king', 1250000],
   ['snopy', 2250000],
   ['cassudo', 750000],
+  ['adventurex', 950000],
 ].forEach(([eff, price]) => {
   db.prepare('UPDATE special_cards SET price = ? WHERE effect = ?').run(price, eff);
 });

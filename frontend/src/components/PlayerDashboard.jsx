@@ -23,6 +23,7 @@ const CARD_THEMES = {
   king:      { primary: '#b45309', hover: '#92400e', bg: '#fffbeb', grad: 'linear-gradient(135deg, #78350f, #d97706)', shadow: '0 10px 25px rgba(180, 83, 9, 0.45)' },
   snopy:     { primary: '#0d9488', hover: '#0f766e', bg: '#f0fdfa', grad: 'linear-gradient(135deg, #134e4a, #0f766e)', shadow: '0 10px 25px rgba(13, 148, 136, 0.45)' },
   cassudo:   { primary: '#c2410c', hover: '#9a3412', bg: '#fff7ed', grad: 'linear-gradient(135deg, #7c2d12, #ea580c)', shadow: '0 10px 25px rgba(194, 65, 12, 0.45)' },
+  adventurex:{ primary: '#7c3aed', hover: '#6d28d9', bg: '#f5f3ff', grad: 'linear-gradient(135deg, #4c1d95, #9333ea)', shadow: '0 10px 25px rgba(124, 58, 237, 0.45)' },
   tigrinho:  { primary: '#059669', hover: '#047857', bg: '#ecfdf5', grad: 'linear-gradient(135deg, #064e3b, #10b981)', shadow: '0 10px 25px rgba(5, 150, 105, 0.45)' },
   fugir:     { primary: '#0369a1', hover: '#075985', bg: '#f0f9ff', grad: 'linear-gradient(135deg, #0c4a6e, #0284c7)', shadow: '0 10px 25px rgba(3, 105, 161, 0.45)' },
 };
@@ -282,6 +283,12 @@ export default function PlayerDashboard({ user, setUser, socket, onLogout }) {
       return;
     }
     if (c.effect === 'cassudo') {
+      setCascudoReceiverId('');
+      setCascudoAmountDisplay('');
+      setCascudoModal(c);
+      return;
+    }
+    if (c.effect === 'adventurex') {
       setCascudoReceiverId('');
       setCascudoAmountDisplay('');
       setCascudoModal(c);
@@ -711,13 +718,15 @@ export default function PlayerDashboard({ user, setUser, socket, onLogout }) {
         </div>
       )}
 
-      {/* Modal CASCUDO CARD */}
+      {/* Modal CASCUDO / ADVENTURE EXPRESS */}
       {cascudoModal && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
           <div className="glass animate-slide-up" style={{ width: '90%', maxWidth: '380px', textAlign: 'center' }}>
-            <h3>🐚 CASCUDO EXPRESS</h3>
+            <h3>{cascudoModal.emoji} {cascudoModal.name}</h3>
             <p style={{ color: 'var(--text-muted)', fontSize: '14px', margin: '10px 0' }}>
-              Você paga <strong>40% a menos</strong> e a pessoa recebe o <strong>valor integral</strong>.
+              {cascudoModal.effect === 'adventurex'
+                ? <>O cartão paga <strong>60%</strong> do valor que você deve e a pessoa recebe o <strong>valor integral</strong>.</>
+                : <>Você paga <strong>40% a menos</strong> e a pessoa recebe o <strong>valor integral</strong>.</>}
             </p>
             <select className="input-field" value={cascudoReceiverId} onChange={e => setCascudoReceiverId(e.target.value)} style={{ textAlign: 'left' }}>
               <option value="" disabled>Quem vai receber?</option>
