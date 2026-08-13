@@ -537,6 +537,19 @@ if (receiver.role === 'player' && receiver.balance < 1000000) {
         if (banco) db.prepare('UPDATE users SET balance = balance - ? WHERE id = ?').run(kingBonus, banco.id);
       }
     }
+
+// KING CURRY CARD: o dono ganha +10% de TODAS as transferências do jogo (o extra é pago pelo Banco)
+    let curryBonus = 0;
+    let curryOwnerId = null;
+    {
+      const curry = db.prepare("SELECT ownerId FROM special_cards WHERE effect = 'curry' AND ownerId IS NOT NULL").get();
+      if (curry && curry.ownerId) {
+        curryOwnerId = curry.ownerId;
+        curryBonus = Math.ceil((effectiveAmount * 0.10) / 1000) * 1000;
+        if (banco) db.prepare('UPDATE users SET balance = balance - ? WHERE id = ?').run(curryBonus, banco.id);
+        db.prepare('UPDATE users SET balance = balance + ? WHERE id = ?').run(curryBonus, curry.ownerId);
+      }
+    }
     // CASCUDO EXPRESS agora é cartão ativo (uso via Admin). O desconto de 40% é aplicado em applyCardEffect.
     let paidToReceiver = effectiveAmount + kingBonus;
 
@@ -576,6 +589,16 @@ db.prepare('UPDATE users SET balance = balance - ? WHERE id = ?').run(effectiveA
       amount: paidToReceiver,
       newBalance: receiverRow?.balance
     });
+
+    // Notifica dono do KING CURRY CARD sobre o bônus de 10%
+    if (curryOwnerId && curryBonus > 0) {
+      const curryRow = db.prepare('SELECT balance FROM users WHERE id = ?').get(curryOwnerId);
+      io.to(`user_${curryOwnerId}`).emit('pix_received', {
+        from: 'KING CURRY CARD (+10% da transferência)',
+        amount: curryBonus,
+        newBalance: curryRow?.balance
+      });
+    }
   });
 
   // Estorno (Admin)

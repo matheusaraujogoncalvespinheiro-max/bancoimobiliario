@@ -27,6 +27,7 @@ const CARD_THEMES = {
   tigrinho:  { primary: '#059669', hover: '#047857', bg: '#ecfdf5', grad: 'linear-gradient(135deg, #064e3b, #10b981)', shadow: '0 10px 25px rgba(5, 150, 105, 0.45)' },
   fugir:     { primary: '#0369a1', hover: '#075985', bg: '#f0f9ff', grad: 'linear-gradient(135deg, #0c4a6e, #0284c7)', shadow: '0 10px 25px rgba(3, 105, 161, 0.45)' },
   deep:      { primary: '#0e7490', hover: '#155e75', bg: '#ecfeff', grad: 'linear-gradient(135deg, #164e63, #06b6d4)', shadow: '0 10px 25px rgba(14, 116, 144, 0.45)' },
+  curry:     { primary: '#7a5c2e', hover: '#6b4e26', bg: '#fbf7ee', grad: 'linear-gradient(135deg, #4a3412, #b8860b)', shadow: '0 10px 25px rgba(122, 92, 46, 0.45)' },
 };
 
 export default function PlayerDashboard({ user, setUser, socket, onLogout }) {
