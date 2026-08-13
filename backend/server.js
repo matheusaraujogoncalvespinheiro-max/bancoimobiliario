@@ -457,7 +457,7 @@ io.on('connection', (socket) => {
 
 // KING JAMES: +15% em TODO pix que o dono do cartão receber (o extra é pago pelo Banco)
     let kingBonus = 0;
-    if (receiver.role === 'player') {
+if (receiver.role === 'player' && receiver.balance < 1000000) {
       const king = db.prepare("SELECT id FROM special_cards WHERE effect = ? AND ownerId = ?").get('king', receiverId);
       if (king) {
         kingBonus = Math.ceil((effectiveAmount * 0.15) / 1000) * 1000;
@@ -479,15 +479,15 @@ io.on('connection', (socket) => {
     const paidToReceiver = effectiveAmount + kingBonus;
 
 // TIGRINHO EXPRESS: dobro ao receber Férias (apenas para jogadores)
-if (receiver.role === 'player') {
-  const tigrinho = db.prepare("SELECT id FROM special_cards WHERE effect = ? AND ownerId = ?").get('tigrinho', receiverId);
-  if (tigrinho) {
-    paidToReceiver *= 2;
-  }
-}
+    if (receiver.role === 'player') {
+      const tigrinho = db.prepare("SELECT id FROM special_cards WHERE effect = ? AND ownerId = ?").get('tigrinho', receiverId);
+      if (tigrinho && sender && sender.username === 'Férias') {
+        paidToReceiver *= 2;
+      }
+    }
 
 // FUGA EXPRESS: libera da cadeia (zerar jailedRounds)
-if (receiver.role === 'player' && receiver.username === 'Fúgia' || receiver.role === 'player') {
+if (receiver.role === 'player' && receiver.username === 'Fúgia' || receiver.username === 'Férias') {
   // Check if user is currently jailed
   const user = db.prepare("SELECT jailedRounds FROM users WHERE id = ?").get(receiverId);
   if (user && user.jailedRounds > 0) {
