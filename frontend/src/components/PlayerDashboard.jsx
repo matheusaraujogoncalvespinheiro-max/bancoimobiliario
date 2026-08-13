@@ -60,6 +60,10 @@ export default function PlayerDashboard({ user, setUser, socket, onLogout }) {
   const [cascudoReceiverId, setCascudoReceiverId] = useState('');
   const [cascudoAmountDisplay, setCascudoAmountDisplay] = useState('');
 
+  // Cartão PATRIA (pagar imposto/Férias no seu lugar - Banco cobre)
+  const [patriaModal, setPatriaModal] = useState(null);
+  const [patriaAmountDisplay, setPatriaAmountDisplay] = useState('');
+
   // Cartão CAVEIRA (mandar alguém para a cadeia)
   const [jailModal, setJailModal] = useState(null);
   const [jailReceiverId, setJailReceiverId] = useState('');
@@ -283,6 +287,11 @@ export default function PlayerDashboard({ user, setUser, socket, onLogout }) {
       setCascudoModal(c);
       return;
     }
+    if (c.effect === 'patria') {
+      setPatriaAmountDisplay('');
+      setPatriaModal(c);
+      return;
+    }
     if (c.effect === 'caveira') {
       setJailReceiverId('');
       setJailModal(c);
@@ -312,6 +321,14 @@ export default function PlayerDashboard({ user, setUser, socket, onLogout }) {
     if (val % 1000 !== 0) return alert('O valor deve ser múltiplo de 1.000.');
     socket.emit('request_card_use', { userId: uid, cardId: cascudoModal.id, receiverId: Number(cascudoReceiverId), amount: val });
     setCascudoModal(null);
+  };
+
+  const handleConfirmPatria = () => {
+    const val = desformatarNumero(patriaAmountDisplay);
+    if (val <= 0) return alert('Informe o valor do imposto.');
+    if (val % 1000 !== 0) return alert('O valor deve ser múltiplo de 1.000.');
+    socket.emit('request_card_use', { userId: uid, cardId: patriaModal.id, amount: val });
+    setPatriaModal(null);
   };
 
   const statusLabel = (status) => ({
@@ -717,6 +734,30 @@ export default function PlayerDashboard({ user, setUser, socket, onLogout }) {
             <div style={{ display: 'flex', gap: '12px', marginTop: '16px' }}>
               <button className="btn-secondary" style={{ flex: 1 }} onClick={() => setCascudoModal(null)}>Cancelar</button>
               <button className="btn-primary" style={{ flex: 1 }} onClick={handleConfirmCascudo}>Pagar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal PATRIA CARD */}
+      {patriaModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
+          <div className="glass animate-slide-up" style={{ width: '90%', maxWidth: '380px', textAlign: 'center' }}>
+            <h3>🏛️ PATRIA EXPRESS</h3>
+            <p style={{ color: 'var(--text-muted)', fontSize: '14px', margin: '10px 0' }}>
+              Você digita o valor do <strong>Imposto (Férias)</strong> e o <strong>Banco paga no seu lugar</strong>. Nada sai do seu saldo.
+            </p>
+            <input
+              className="input-field"
+              type="text"
+              inputMode="numeric"
+              placeholder="Valor do imposto (múltiplos de 1.000)"
+              value={patriaAmountDisplay}
+              onChange={e => setPatriaAmountDisplay(formatarNumero(e.target.value))}
+            />
+            <div style={{ display: 'flex', gap: '12px', marginTop: '16px' }}>
+              <button className="btn-secondary" style={{ flex: 1 }} onClick={() => setPatriaModal(null)}>Cancelar</button>
+              <button className="btn-primary" style={{ flex: 1 }} onClick={handleConfirmPatria}>Isentar</button>
             </div>
           </div>
         </div>

@@ -40,15 +40,15 @@ const applyCardEffect = (user, card, receiverId, amount) => {
   const ferias = db.prepare("SELECT id FROM users WHERE username = 'Férias'").get();
 
   if (card.effect === 'patria') {
-    const tx = db.prepare('SELECT * FROM transactions WHERE senderId = ? AND receiverId = ? AND status = \'completed\' ORDER BY id DESC LIMIT 1')
-      .get(user.id, ferias.id);
-    if (tx) {
-      db.prepare('UPDATE users SET balance = balance + ? WHERE id = ?').run(tx.amount, user.id);
-      db.prepare('UPDATE users SET balance = balance - ? WHERE id = ?').run(tx.amount, ferias.id);
-      db.prepare('UPDATE transactions SET status = \'refunded\' WHERE id = ?').run(tx.id);
-      const row = db.prepare('SELECT balance FROM users WHERE id = ?').get(user.id);
-      io.to(`user_${user.id}`).emit('pix_received', { from: 'PATRIA EXPRESS (isenção de imposto)', amount: tx.amount, newBalance: row?.balance });
-    }
+    if (!amount || amount <= 0) return 'Informe o valor do imposto (Férias) a ser isentado.';
+    if (amount % 1000 !== 0) return 'O valor deve ser múltiplo de 1.000.';
+    if (!banco || !ferias) return 'Banco ou Férias não encontrado.';
+    db.prepare('UPDATE users SET balance = balance - ? WHERE id = ?').run(amount, banco.id);
+    db.prepare('UPDATE users SET balance = balance + ? WHERE id = ?').run(amount, ferias.id);
+    db.prepare('INSERT INTO transactions (senderId, receiverId, amount) VALUES (?, ?, ?)').run(banco.id, ferias.id, amount);
+    const fRow = db.prepare('SELECT balance FROM users WHERE id = ?').get(ferias.id);
+    io.emit('ferias_updated', { balance: fRow?.balance });
+    io.to(`user_${user.id}`).emit('pix_success', { amount: 0, newBalance: user.balance, to: 'Imposto (Férias) - isenção PATRIA EXPRESS' });
     return null;
   }
 
@@ -622,6 +622,10 @@ db.prepare('UPDATE users SET balance = balance - ? WHERE id = ?').run(effectiveA
         return socket.emit('pix_error', 'Destinatário inválido. Escolha outro jogador.');
       }
       if (receiver.isBankrupt) return socket.emit('pix_error', 'Esse jogador faliu e está fora do jogo.');
+    }
+    if (card.effect === 'patria') {
+      if (!amount || amount <= 0) return socket.emit('pix_error', 'Informe o valor do imposto (Férias) a ser isentado.');
+      if (amount % 1000 !== 0) return socket.emit('pix_error', 'O valor deve ser múltiplo de 1.000.');
     }
     if (card.effect === 'snopy' && user.balance >= 0) {
       return socket.emit('pix_error', 'Seu saldo já está positivo. Use o cartão quando estiver no vermelho.');

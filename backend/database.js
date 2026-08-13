@@ -133,7 +133,7 @@ if (!db.prepare('SELECT COUNT(*) as c FROM special_cards').get().c) {
   `);
   [
     ['CAVEIRA CARD', '💀', 1250000, 'Manda um jogador para a cadeia por 2 rodadas: enquanto preso, ele NÃO recebe pagamentos.', 'caveira', 1, 'caveira-card.png'],
-    ['PATRIA EXPRESS', '🏛️', 450000, 'Isenção de impostos por até 3 vezes no jogo: isenta o seu último pagamento ao Imposto (Férias).', 'patria', 3, 'patria-express.png'],
+    ['PATRIA EXPRESS', '🏛️', 450000, 'Use para pagar o imposto (Férias) por você: digita o valor e o Banco paga no seu lugar. Uso 3 vezes no jogo.', 'patria', 3, 'patria-express.png'],
     ['ADVENTURE CARD', '🚀', 750000, 'Pague alguém sem descontar do seu saldo: o Banco paga a pessoa escolhida por você. Uso único no jogo.', 'adventure', 1, 'adventure-card.png'],
     ['BIQUINI EXPRESS', '🩱', 1000000, 'Passivo: você recebe +10% em todo dinheiro que o Banco do Governo pagar para você.', 'biquini', 0, 'biquini-express.png'],
     ['KING JAMES', '👑', 1250000, 'Passivo: você recebe +25% em TODOS os Pix que chegar para você (o Banco paga o extra).', 'king', 0, 'king-james.png'],
@@ -178,6 +178,9 @@ db.prepare("UPDATE special_cards SET price = 1500000, description = 'Manda um jo
 
 // KING JAMES agora dá +25% em todo Pix recebido (aplica em bases já existentes)
 db.prepare("UPDATE special_cards SET description = 'Passivo: você recebe +25% em TODOS os Pix que chegar para você (o Banco paga o extra).' WHERE effect = 'king'").run();
+
+// PATRIA EXPRESS agora paga o imposto no lugar do jogador (Banco cobre) - aplica em bases já existentes
+db.prepare("UPDATE special_cards SET description = 'Use para pagar o imposto (Férias) por você: digita o valor e o Banco paga no seu lugar. Uso 3 vezes no jogo.' WHERE effect = 'patria'").run();
 
 // Todos os cartões ficaram 250 mil mais baratos (aplica em bases já existentes)
 [

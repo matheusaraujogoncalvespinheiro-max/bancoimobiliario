@@ -501,6 +501,11 @@ export default function AdminPanel({ socket, onLogout }) {
                                 : <>Mandando <strong>{r.receiverName}</strong> para a cadeia ⛓️</>}
                             </div>
                           )}
+                          {!r.receiverName && r.amount && (
+                            <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
+                              Isentando imposto de M$ {Number(r.amount).toLocaleString('pt-BR')} (Banco paga)
+                            </div>
+                          )}
                           <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>🕐 {new Date(r.createdAt).toLocaleString('pt-BR')}</div>
                         </div>
                       </div>
