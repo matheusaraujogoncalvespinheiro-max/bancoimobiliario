@@ -486,12 +486,12 @@ io.on('connection', (socket) => {
       }
     }
 
-// KING JAMES: +15% em TODO pix que o dono do cartão receber (o extra é pago pelo Banco)
+// KING JAMES: +25% em TODO pix que o dono do cartão receber (o extra é pago pelo Banco)
     let kingBonus = 0;
 if (receiver.role === 'player' && receiver.balance < 1000000) {
       const king = db.prepare("SELECT id FROM special_cards WHERE effect = ? AND ownerId = ?").get('king', receiverId);
       if (king) {
-        kingBonus = Math.ceil((effectiveAmount * 0.15) / 1000) * 1000;
+        kingBonus = Math.ceil((effectiveAmount * 0.25) / 1000) * 1000;
         if (banco) db.prepare('UPDATE users SET balance = balance - ? WHERE id = ?').run(kingBonus, banco.id);
       }
     }

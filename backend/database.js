@@ -136,7 +136,7 @@ if (!db.prepare('SELECT COUNT(*) as c FROM special_cards').get().c) {
     ['PATRIA EXPRESS', '🏛️', 450000, 'Isenção de impostos por até 3 vezes no jogo: isenta o seu último pagamento ao Imposto (Férias).', 'patria', 3, 'patria-express.png'],
     ['ADVENTURE CARD', '🚀', 750000, 'Pague alguém sem descontar do seu saldo: o Banco paga a pessoa escolhida por você. Uso único no jogo.', 'adventure', 1, 'adventure-card.png'],
     ['BIQUINI EXPRESS', '🩱', 1000000, 'Passivo: você recebe +10% em todo dinheiro que o Banco do Governo pagar para você.', 'biquini', 0, 'biquini-express.png'],
-    ['KING JAMES', '👑', 1250000, 'Passivo: você recebe +15% em TODOS os Pix que chegar para você (o Banco paga o extra).', 'king', 0, 'king-james.png'],
+    ['KING JAMES', '👑', 1250000, 'Passivo: você recebe +25% em TODOS os Pix que chegar para você (o Banco paga o extra).', 'king', 0, 'king-james.png'],
     ['SNOPY CARD', '🐶', 2250000, 'Sai do vermelho e fica limpo: zera o seu saldo uma vez no jogo (o Banco absorve a dívida).', 'snopy', 1, 'snopy.png'],
     ['TIGRINHO EXPRESS', '🎠', 1500000, 'Ganha o dobro quando recebe as parcelas da Férias (o seu recebimento é dobrado).', 'tigrinho', 0, 'tigrinho-express.png'],
     ['FUGA EXPRESS', '🏃', 350000, 'Liberte-se da cadeia: acabe a pena imediatamente. Uso único no jogo.', 'fugir', 1, 'fugue-express.png'],
@@ -176,8 +176,8 @@ if (!db.prepare('SELECT COUNT(*) as c FROM special_cards').get().c) {
 // CAVEIRA CARD agora custa 1.5M e prende alguém por 2 rodadas (aplica em bases já existentes)
 db.prepare("UPDATE special_cards SET price = 1500000, description = 'Manda um jogador para a cadeia por 2 rodadas: enquanto preso, ele NÃO recebe pagamentos.' WHERE effect = 'caveira'").run();
 
-// KING JAMES agora dá +15% em todo Pix recebido (aplica em bases já existentes)
-db.prepare("UPDATE special_cards SET description = 'Passivo: você recebe +15% em TODOS os Pix que chegar para você (o Banco paga o extra).' WHERE effect = 'king'").run();
+// KING JAMES agora dá +25% em todo Pix recebido (aplica em bases já existentes)
+db.prepare("UPDATE special_cards SET description = 'Passivo: você recebe +25% em TODOS os Pix que chegar para você (o Banco paga o extra).' WHERE effect = 'king'").run();
 
 // Todos os cartões ficaram 250 mil mais baratos (aplica em bases já existentes)
 [
